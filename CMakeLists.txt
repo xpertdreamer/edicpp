@@ -1,20 +1,20 @@
 cmake_minimum_required(VERSION 3.10)
+project(edi LANGUAGES CXX)
 
-# Project name
-project(edi)
-
-# Cpp Standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Exec
-add_executable(${PROJECT_NAME}
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
+
+set(SOURCES
     src/edi.cpp
+    src/term.cpp
 )
 
-# Include dirs
-target_include_directories(${PROJECT_NAME} PRIVATE
-    include/
-)
+add_executable(${PROJECT_NAME} ${SOURCES})
 
-set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
+target_include_directories(edi PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+)
