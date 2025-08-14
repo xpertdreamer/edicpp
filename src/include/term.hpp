@@ -38,7 +38,12 @@ private:
         ARROW_LEFT = 1000,
         ARROW_RIGHT,
         ARROW_UP,
-        ARROW_DOWN
+        ARROW_DOWN,
+        CTRL_ARROW_LEFT,
+        CTRL_ARROW_RIGHT,
+        CTRL_ARROW_UP,
+        CTRL_ARROW_DOWN,
+        DEL_KEY
     };
 
     void editorMoveCursor(int key);

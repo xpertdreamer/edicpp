@@ -61,19 +61,40 @@ int Term::editorReadKey() {
     }
 
     if (c == '\x1b') {
-        char seq[3];
+        char seq[8];
+
         if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
         if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
 
         if (seq[0] == '[') {
-            switch (seq[1])
-            {
-                case 'A': return ARROW_UP;
-                case 'B': return ARROW_DOWN;
-                case 'C': return ARROW_RIGHT;
-                case 'D': return ARROW_LEFT;
+            if (seq[1] == '1') {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+                if (read(STDIN_FILENO, &seq[3], 1) != 1) return '\x1b';
+                if (seq[2] == ';' && seq[3] == '5') {
+                    if (read(STDIN_FILENO, &seq[4], 1) != 1) return '\x1b';
+                    switch (seq[4]) {
+                    case 'A':
+                        return CTRL_ARROW_UP;
+                        break;
+                    case 'B':
+                        return CTRL_ARROW_DOWN;
+                        break;
+                    case 'C':
+                        return CTRL_ARROW_RIGHT;
+                    case 'D':
+                        return CTRL_ARROW_LEFT;
+                    }
+                }
+            } else {
+                switch (seq[1]) {
+                    case 'A': return ARROW_UP;
+                    case 'B': return ARROW_DOWN;
+                    case 'C': return ARROW_RIGHT;
+                    case 'D': return ARROW_LEFT;
+                }
             }
         }
+
         return '\x1b';
     } else {
         return c;
@@ -86,6 +107,20 @@ bool Term::editorProccessKeypress() {
     switch(c) {
         case CTRL_KEY('q'):
             return false;
+        case CTRL_ARROW_UP:
+            // fall through
+        case CTRL_ARROW_DOWN:
+        {
+            int times = config_.screen_rows;
+            while (times--) {
+                editorMoveCursor(c == CTRL_ARROW_UP ? ARROW_UP : ARROW_DOWN);
+            }
+            break;
+        }
+        case CTRL_ARROW_LEFT:
+            // fall through
+        case CTRL_ARROW_RIGHT:
+            // fall through
         case ARROW_UP: 
             // fall through
         case ARROW_DOWN:
@@ -208,6 +243,12 @@ void Term::editorMoveCursor(int key) {
         if (config_.cursor_y != config_.screen_rows - 1) {
             config_.cursor_y++;
         }
+        break;
+    case CTRL_ARROW_LEFT:
+        config_.cursor_x = 0;
+        break;
+    case CTRL_ARROW_RIGHT:
+        config_.cursor_x = config_.screen_cols - 1;
         break;
     }
 }
