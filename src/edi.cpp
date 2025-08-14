@@ -2,7 +2,12 @@
 
 int main() {
     Term term;
-    term.readInput();
-
+    term.initEditor();
+    
+    while (true) {
+        term.editorRefreshScreen();
+        if (term.editorProccessKeypress() == false) break;
+    }
+    
     return 0;
 }
