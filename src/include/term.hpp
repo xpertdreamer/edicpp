@@ -28,14 +28,24 @@ private:
         struct termios orig_term;
         int screen_rows;
         int screen_cols;
+        int cursor_x;
+        int cursor_y;
     } config_;
 
     std::string abuf;
 
+    enum editorKey {
+        ARROW_LEFT = 1000,
+        ARROW_RIGHT,
+        ARROW_UP,
+        ARROW_DOWN
+    };
+
+    void editorMoveCursor(int key);
     void enableRawMode();
     void disableRawMode();
     void die(const char *msg);
-    char editorReadKey();
+    int editorReadKey();
     void editorDrawRows(std::string &ab);
     int getWindowSize(int *rows, int *cols);
     int getCursorPosition(int *rows, int *cols);

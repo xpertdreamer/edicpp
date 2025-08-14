@@ -1,5 +1,6 @@
 /*** includes ***/
 #include "include/term.hpp"
+#include "version.hpp"
 
 /*** defines ***/
 #define CTRL_KEY(key) ((key) & 0x1f)
@@ -21,6 +22,9 @@ void Term::disableRawMode() {
     if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &config_.orig_term) == -1) {
         die("tcsetattr in disableRawMode");
     }
+
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
 }
 
 void Term::enableRawMode() {
@@ -49,21 +53,48 @@ void Term::die(const char *msg) {
     exit(1);
 }
 
-char Term::editorReadKey() {
+int Term::editorReadKey() {
     int nread;
     char c;
     while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
         if (nread == -1 && errno != EAGAIN) die("read");
     }
-    return c;
+
+    if (c == '\x1b') {
+        char seq[3];
+        if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
+        if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
+
+        if (seq[0] == '[') {
+            switch (seq[1])
+            {
+                case 'A': return ARROW_UP;
+                case 'B': return ARROW_DOWN;
+                case 'C': return ARROW_RIGHT;
+                case 'D': return ARROW_LEFT;
+            }
+        }
+        return '\x1b';
+    } else {
+        return c;
+    }
 }
 
 bool Term::editorProccessKeypress() {
-    char c = editorReadKey();
+    int c = editorReadKey();
 
     switch(c) {
         case CTRL_KEY('q'):
             return false;
+        case ARROW_UP: 
+            // fall through
+        case ARROW_DOWN:
+            // fall through
+        case ARROW_LEFT:
+            // fall through
+        case ARROW_RIGHT:
+            editorMoveCursor(c);
+            break;
     }
     return true;
 }
@@ -71,18 +102,43 @@ bool Term::editorProccessKeypress() {
 void Term::editorRefreshScreen() {
     string ab;
 
-    ab += "\x1b[2J";
+    ab += "\x1b[?25l";
     ab += "\x1b[H";
     
     editorDrawRows(ab);
-    ab += "\x1b[H";
+
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", config_.cursor_y + 1, config_.cursor_x + 1);
+    ab += buffer;
+
+    ab += "\x1b[?25h";
+
     write(STDOUT_FILENO, ab.c_str(), ab.length());
 }
 
 void Term::editorDrawRows(string &ab) {
     for (int y = 0; y < config_.screen_rows; y++) {
-        ab += '~';
+        if (y == config_.screen_rows / 2) {
+            char welcome_msg[80];
+            int welcomelen = snprintf(welcome_msg, sizeof(welcome_msg),
+        "%s -- version %s", 
+        PROJECT_NAME, 
+        PROJECT_VERSION);
 
+        if (welcomelen > config_.screen_cols) welcomelen = config_.screen_cols;
+        int padding = (config_.screen_cols - welcomelen) / 2;
+        if (padding) {
+            ab += "~";
+            padding--;
+        }
+        while (padding--) ab += " ";
+
+        ab += welcome_msg;
+        } else {
+            ab += '~';
+        }
+
+        ab += "\x1b[K";
         if(y < config_.screen_rows - 1) {
             ab += "\r\n";
         }
@@ -123,7 +179,35 @@ int Term::getCursorPosition(int *rows, int *cols) {
 }
 
 void Term::initEditor() {
+    config_.cursor_x = 0;
+    config_.cursor_y = 0;
     if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) {
         die("getWindowSize");
+    }
+}
+
+void Term::editorMoveCursor(int key) {
+    switch (key)
+    {
+    case ARROW_LEFT:
+        if (config_.cursor_x > 0) {
+            config_.cursor_x--;
+        }
+        break;
+    case ARROW_RIGHT:
+        if (config_.cursor_x != config_.screen_cols - 1) {
+            config_.cursor_x++;
+        }
+        break;
+    case ARROW_UP:
+        if (config_.cursor_y > 0) {
+            config_.cursor_y--;
+        }
+        break;
+    case ARROW_DOWN:
+        if (config_.cursor_y != config_.screen_rows - 1) {
+            config_.cursor_y++;
+        }
+        break;
     }
 }

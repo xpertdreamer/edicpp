@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(edi LANGUAGES CXX)
+project(edi LANGUAGES CXX VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,13 +13,21 @@ set(SOURCES
     src/term.cpp
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES})
-
-target_include_directories(edi PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+set(VERSION_HEADER ${CMAKE_BINARY_DIR}/generated/version.hpp)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp.in
+    ${VERSION_HEADER}
+    @ONLY
 )
 
-target_compile_options(edi PRIVATE
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall
     -Wextra
     -Wpedantic
