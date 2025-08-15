@@ -13,6 +13,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <string>
+#include <sys/types.h>
 
 class Term {
 public:
@@ -22,14 +23,22 @@ public:
     bool editorProccessKeypress();
     void editorRefreshScreen();
     void initEditor();
+    void editorOpen(char *filename);
     
 private:
+    typedef struct TextRow {
+        int size;
+        char *chars;
+    } trow_;
+
     struct OrigTermCfg {
         struct termios orig_term;
         int screen_rows;
         int screen_cols;
         int cursor_x;
         int cursor_y;
+        int numrows;
+        trow_ *row;
     } config_;
 
     std::string abuf;

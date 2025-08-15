@@ -1,9 +1,12 @@
+/*** defines ***/
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define _GNU_SOURCE
+#define CTRL_KEY(key) ((key) & 0x1f)
+
 /*** includes ***/
 #include "include/term.hpp"
 #include "version.hpp"
-
-/*** defines ***/
-#define CTRL_KEY(key) ((key) & 0x1f)
 
 /*** usings ***/
 using namespace std;
@@ -85,6 +88,14 @@ int Term::editorReadKey() {
                         return CTRL_ARROW_LEFT;
                     }
                 }
+            } else if (seq[1] >= 0 && seq [1] <= 9) {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+                if (seq[2] == '~') {
+                    switch(seq[1]) {
+                        /* implement other keys */
+                        case '3': return DEL_KEY;
+                    }
+                }
             } else {
                 switch (seq[1]) {
                     case 'A': return ARROW_UP;
@@ -153,28 +164,33 @@ void Term::editorRefreshScreen() {
 
 void Term::editorDrawRows(string &ab) {
     for (int y = 0; y < config_.screen_rows; y++) {
-        if (y == config_.screen_rows / 2) {
-            char welcome_msg[80];
-            int welcomelen = snprintf(welcome_msg, sizeof(welcome_msg),
-        "%s -- version %s", 
-        PROJECT_NAME, 
-        PROJECT_VERSION);
+        if (y >= config_.numrows) {
+            if (config_.numrows == 0 && y == config_.screen_rows / 2) {
+                char welcome_msg[80];
+                int welcomelen = snprintf(welcome_msg, sizeof(welcome_msg),
+                "%s -- version %s", 
+                PROJECT_NAME, 
+                PROJECT_VERSION);
 
-        if (welcomelen > config_.screen_cols) welcomelen = config_.screen_cols;
-        int padding = (config_.screen_cols - welcomelen) / 2;
-        if (padding) {
-            ab += "~";
-            padding--;
-        }
-        while (padding--) ab += " ";
+            if (welcomelen > config_.screen_cols) welcomelen = config_.screen_cols;
+            int padding = (config_.screen_cols - welcomelen) / 2;
+            if (padding) {
+                ab += "~";
+                padding--;
+            }
+            while (padding--) ab += " ";
 
-        ab += welcome_msg;
+            ab += welcome_msg;
         } else {
             ab += '~';
         }
-
-        ab += "\x1b[K";
-        if(y < config_.screen_rows - 1) {
+        } else {
+            int len = config_.row.size;
+            if (len > config_.screen_cols) len = config_.screen_cols;
+            ab += config_.row.chars;
+        }
+            ab += "\x1b[K";
+        if (y < config_.screen_rows - 1) {
             ab += "\r\n";
         }
     }
@@ -216,6 +232,8 @@ int Term::getCursorPosition(int *rows, int *cols) {
 void Term::initEditor() {
     config_.cursor_x = 0;
     config_.cursor_y = 0;
+    config_.numrows = 0;
+    config_.row = NULL;
     if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) {
         die("getWindowSize");
     }
@@ -251,4 +269,27 @@ void Term::editorMoveCursor(int key) {
         config_.cursor_x = config_.screen_cols - 1;
         break;
     }
+}
+
+void Term::editorOpen(char* filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) die("fopen");
+
+    char *line = NULL;
+    size_t lineCap = 0;
+    ssize_t lineLen;
+    lineLen = getline(&line, &lineCap, file);
+    if (lineLen != -1) {
+        while (lineLen > 0 && (line[lineLen - 1] == '\n' ||
+                               line[lineLen - 1] == '\r')) {
+            lineLen--;
+        }
+        config_.row.size = lineLen;
+        config_.row.chars = (char*)malloc(lineLen + 1);
+        memcpy(config_.row.chars, line, lineLen);
+        config_.row.chars[lineLen] = '\0';
+        config_.numrows = 1;
+    }
+    free(line);
+    fclose(file);
 }
