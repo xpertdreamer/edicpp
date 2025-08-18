@@ -135,11 +135,11 @@ bool Term::editorProccessKeypress() {
             }
             break;
         }
-        case CTRL_ARROW_LEFT:
-            // fall through
         case CTRL_ARROW_RIGHT:
             if (config_.cursor_y < config_.numrows) config_.cursor_x = config_.row[config_.cursor_y].size;
             break;
+        case CTRL_ARROW_LEFT:
+            // fall through
         case ARROW_UP: 
             // fall through
         case ARROW_DOWN:
@@ -162,6 +162,7 @@ void Term::editorRefreshScreen() {
     ab += "\x1b[H";
     
     editorDrawRows(ab);
+    editorDrawStatusBar(ab);
 
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.r_x - config_.col_offset) + 1);
@@ -202,9 +203,7 @@ void Term::editorDrawRows(string &ab) {
             ab.append(&config_.row[fileRow].render[config_.col_offset], len);
         }
             ab += "\x1b[K";
-        if (y < config_.screen_rows - 1) {
             ab += "\r\n";
-        }
     }
 }
 
@@ -259,9 +258,10 @@ void Term::initEditor() {
     config_.col_offset = 0;
     config_.numrows = 0;
     config_.row = NULL;
-    if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) {
-        die("getWindowSize");
-    }
+    config_.filename = NULL;
+
+    if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) die("getWindowSize");
+    config_.screen_cols -= 1;
 }
 
 void Term::editorMoveCursor(int key) {
@@ -297,7 +297,7 @@ void Term::editorMoveCursor(int key) {
         config_.cursor_x = 0;
         break;
     case CTRL_ARROW_RIGHT:
-        config_.cursor_x = config_.screen_cols - 1;
+        // config_.cursor_x = config_.row->r_size - 1;
         break;
     }
 
@@ -344,6 +344,9 @@ void Term::editorUpdateRow(trow_ *row) {
 }
 
 void Term::editorOpen(char* filename) {
+    free(config_.filename);
+    config_.filename = strdup(filename);
+
     FILE *file = fopen(filename, "r");
     if (!file) die("fopen");
 
@@ -369,4 +372,25 @@ int Term::editorRowCxToRx(trow_ *row, int cx) {
         rx++;
     }
     return rx;
+}
+
+void Term::editorDrawStatusBar(std::string &ab) {
+    ab.append("\x1b[7m", 4);
+    char status[80], rstatus[80];
+    int len = snprintf(status, sizeof(status), "%.80s - %d lines", 
+        config_.filename ? config_.filename : "[No Name]", config_.numrows);
+    int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d",
+        config_.cursor_y + 1, config_.numrows);
+    if (len > config_.screen_cols) len = config_.screen_cols;
+    ab.append(status, len);
+    while (len < config_.screen_cols) {
+        if (config_.screen_cols - len == rlen) {
+            ab.append(rstatus, rlen);
+            break;
+        } else {
+            ab.append(" ", 1);
+            len++;
+        }
+    }
+    ab.append("\x1b[m", 3);
 }

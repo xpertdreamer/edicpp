@@ -44,6 +44,7 @@ private:
         int col_offset;
         int numrows;
         trow_ *row;
+        char *filename;
     } config_;
 
     std::string abuf;
@@ -72,6 +73,7 @@ private:
     void editorScroll();
     void editorUpdateRow(trow_ *row);
     int editorRowCxToRx(trow_ *row, int cx);
+    void editorDrawStatusBar(std::string &ab);
 };
 
 #endif // TERM_HPP
