@@ -123,6 +123,12 @@ bool Term::editorProccessKeypress() {
             // fall through
         case CTRL_ARROW_DOWN:
         {
+            if (c == CTRL_ARROW_UP) config_.cursor_y = config_.row_offset;
+            else if (c == CTRL_ARROW_DOWN) {
+                config_.cursor_y = config_.row_offset + config_.screen_cols - 1;
+                if (config_.cursor_y > config_.numrows) config_.cursor_y = config_.numrows;
+            }
+
             int times = config_.screen_rows;
             while (times--) {
                 editorMoveCursor(c == CTRL_ARROW_UP ? ARROW_UP : ARROW_DOWN);
