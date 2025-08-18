@@ -254,15 +254,23 @@ void Term::initEditor() {
 }
 
 void Term::editorMoveCursor(int key) {
+    trow_ *row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
+
     switch (key)
     {
     case ARROW_LEFT:
-        if (config_.cursor_x > 0) {
-            config_.cursor_x--;
+        if (config_.cursor_x > 0) config_.cursor_x--;
+        else if (config_.cursor_y > 0) {
+            config_.cursor_y--;
+            config_.cursor_x = config_.row[config_.cursor_y].size;
         }
         break;
     case ARROW_RIGHT:
-        config_.cursor_x++;
+        if (row && config_.cursor_x < row->size) config_.cursor_x++;
+        else if (row && config_.cursor_x == config_.row->size) {
+            config_.cursor_y++;
+            config_.cursor_x = 0;
+        }
         break;
     case ARROW_UP:
         if (config_.cursor_y > 0) {
@@ -281,6 +289,10 @@ void Term::editorMoveCursor(int key) {
         config_.cursor_x = config_.screen_cols - 1;
         break;
     }
+
+    row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
+    int rowLen = row ? row->size : 0;
+    if (config_.cursor_x > rowLen) config_.cursor_x = rowLen;
 }
 
 void Term::editorAppendRow(char *s, size_t len) {
