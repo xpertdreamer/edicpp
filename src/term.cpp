@@ -3,6 +3,7 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 #define CTRL_KEY(key) ((key) & 0x1f)
+#define TAB_STOP 8
 
 /*** includes ***/
 #include "include/term.hpp"
@@ -156,7 +157,7 @@ void Term::editorRefreshScreen() {
     editorDrawRows(ab);
 
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.cursor_x - config_.col_offset) + 1);
+    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.r_x - config_.col_offset) + 1);
     ab += buffer;
 
     ab += "\x1b[?25h";
@@ -188,11 +189,10 @@ void Term::editorDrawRows(string &ab) {
             ab += '~';
             }
         } else {
-            int len = config_.row[fileRow].size - config_.col_offset;
+            int len = config_.row[fileRow].r_size - config_.col_offset;
             if (len < 0) len = 0;
             if (len > config_.screen_cols) len = config_.screen_cols;
-            // ab += config_.row[fileRow].chars[config_.col_offset];
-            ab.append(&config_.row[fileRow].chars[config_.col_offset], len);
+            ab.append(&config_.row[fileRow].render[config_.col_offset], len);
         }
             ab += "\x1b[K";
         if (y < config_.screen_rows - 1) {
@@ -202,10 +202,13 @@ void Term::editorDrawRows(string &ab) {
 }
 
 void Term::editorScroll() {
+    config_.r_x = 0;
+    if (config_.cursor_y < config_.numrows) config_.r_x = editorRowCxToRx(&config_.row[config_.cursor_y], config_.cursor_x);
+
     if (config_.cursor_y < config_.row_offset) config_.row_offset = config_.cursor_y;
     if (config_.cursor_y >= config_.row_offset + config_.screen_rows) config_.row_offset = config_.cursor_y - config_.screen_rows + 1;
-    if (config_.cursor_x < config_.col_offset) config_.col_offset = config_.cursor_x;
-    if (config_.cursor_x >= config_.col_offset + config_.screen_cols) config_.col_offset = config_.cursor_x - config_.screen_cols + 1;
+    if (config_.r_x < config_.col_offset) config_.col_offset = config_.r_x;
+    if (config_.r_x >= config_.col_offset + config_.screen_cols) config_.col_offset = config_.r_x - config_.screen_cols + 1;
 }
 
 int Term::getWindowSize(int *rows, int *cols) {
@@ -244,6 +247,7 @@ int Term::getCursorPosition(int *rows, int *cols) {
 void Term::initEditor() {
     config_.cursor_x = 0;
     config_.cursor_y = 0;
+    config_.r_x = 0;
     config_.row_offset = 0;
     config_.col_offset = 0;
     config_.numrows = 0;
@@ -303,7 +307,33 @@ void Term::editorAppendRow(char *s, size_t len) {
     config_.row[at].chars = (char*)malloc(len + 1);
     memcpy(config_.row[at].chars, s, len);
     config_.row[at].chars[len] = '\0';
+
+    config_.row[at].r_size = 0;
+    config_.row[at].render = NULL;
+    editorUpdateRow(&config_.row[at]);
+
     config_.numrows++;
+}
+
+void Term::editorUpdateRow(trow_ *row) {
+    int tabs = 0;
+    int j;
+    for (j = 0; j < row->size; j++) if (row->chars[j] == '\t') tabs++;
+
+    free(row->render);
+    row->render = (char*)malloc(row->size + (tabs * (TAB_STOP - 1)) + 1);
+
+    int idx = 0;
+    for (int j = 0; j < row->size; j++) { 
+        if (row->chars[j] == '\t') {
+            row->render[idx++] = ' ';
+            while (idx % TAB_STOP != 0) row->render[idx++] = ' ';
+        } else {
+            row->render[idx++] = row->chars[j];
+        }
+    }
+    row->render[idx] = '\0';
+    row->r_size = idx;
 }
 
 void Term::editorOpen(char* filename) {
@@ -322,4 +352,14 @@ void Term::editorOpen(char* filename) {
     }
     free(line);
     fclose(file);
+}
+
+int Term::editorRowCxToRx(trow_ *row, int cx) {
+    int rx = 0;
+    int j;
+    for (j = 0; j < cx; j++) {
+        if (row->chars[j] == '\t') rx += (TAB_STOP - 1) - (rx % TAB_STOP);
+        rx++;
+    }
+    return rx;
 }

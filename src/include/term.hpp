@@ -28,7 +28,9 @@ public:
 private:
     typedef struct TextRow {
         int size;
+        int r_size;
         char *chars;
+        char *render;
     } trow_;
 
     struct OrigTermCfg {
@@ -37,6 +39,7 @@ private:
         int screen_cols;
         int cursor_x;
         int cursor_y;
+        int r_x;
         int row_offset;
         int col_offset;
         int numrows;
@@ -67,6 +70,8 @@ private:
     int getCursorPosition(int *rows, int *cols);
     void editorAppendRow(char *s, size_t len);
     void editorScroll();
+    void editorUpdateRow(trow_ *row);
+    int editorRowCxToRx(trow_ *row, int cx);
 };
 
 #endif // TERM_HPP
