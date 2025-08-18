@@ -80,6 +80,8 @@ private:
     int editorRowCxToRx(trow_ *row, int cx);
     void editorDrawStatusBar(std::string &ab);
     void editorDrawMessageBar(std::string &ab);
+    void editorRowInsertChar(trow_ *row, int at, int c);
+    void editorInsertChar(int c);
 };
 
 #endif // TERM_HPP

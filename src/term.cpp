@@ -149,6 +149,9 @@ bool Term::editorProccessKeypress() {
         case ARROW_RIGHT:
             editorMoveCursor(c);
             break;
+        default:
+            editorInsertChar(c);
+            break;
     }
     return true;
 }
@@ -407,4 +410,19 @@ void Term::editorDrawMessageBar(std::string &ab) {
     int msgLen = strlen(config_.statusMsg);
     if (msgLen > config_.screen_cols) msgLen = config_.screen_cols;
     if (msgLen && time(NULL) - config_.statusMsg_time < 10) ab.append(config_.statusMsg, msgLen);
+}
+
+void Term::editorRowInsertChar(trow_ *row, int at, int c) {
+    if (at < 0 || at > row->size) at = row->size;
+    row->chars = (char*)realloc(row->chars, row->size + 2);
+    memmove(&row->chars[at + 1], &row->chars[at], row->size - at + 1);
+    row->size++;
+    row->chars[at] = c;
+    editorUpdateRow(row);
+}
+
+void Term::editorInsertChar(int c) {
+    if (config_.cursor_y == config_.numrows) editorAppendRow("", 0);
+    editorRowInsertChar(&config_.row[config_.cursor_y], config_.cursor_x, c);
+    config_.cursor_x++;
 }
