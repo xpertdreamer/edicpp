@@ -5,6 +5,8 @@ int main(int argc, char **argv) {
     term.initEditor();
     if(argc >= 2) term.editorOpen(argv[1]);
     
+    term.editorSetStatusMessage("HELP: CTRL-Q = quit");
+
     while (true) {
         term.editorRefreshScreen();
         if (term.editorProccessKeypress() == false) break;

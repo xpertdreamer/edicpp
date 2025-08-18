@@ -5,6 +5,7 @@
 
 #include <cctype>
 #include <iostream>
+#include <string>
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
@@ -12,8 +13,9 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <string.h>
-#include <string>
+#include <time.h>
 #include <sys/types.h>
+#include <stdarg.h>
 
 class Term {
 public:
@@ -24,6 +26,7 @@ public:
     void editorRefreshScreen();
     void initEditor();
     void editorOpen(char *filename);
+    void editorSetStatusMessage(const char *fmt, ...);
     
 private:
     typedef struct TextRow {
@@ -45,6 +48,8 @@ private:
         int numrows;
         trow_ *row;
         char *filename;
+        char statusMsg[80];
+        time_t statusMsg_time;
     } config_;
 
     std::string abuf;
@@ -74,6 +79,7 @@ private:
     void editorUpdateRow(trow_ *row);
     int editorRowCxToRx(trow_ *row, int cx);
     void editorDrawStatusBar(std::string &ab);
+    void editorDrawMessageBar(std::string &ab);
 };
 
 #endif // TERM_HPP

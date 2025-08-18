@@ -163,6 +163,7 @@ void Term::editorRefreshScreen() {
     
     editorDrawRows(ab);
     editorDrawStatusBar(ab);
+    editorDrawMessageBar(ab);
 
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.r_x - config_.col_offset) + 1);
@@ -259,16 +260,17 @@ void Term::initEditor() {
     config_.numrows = 0;
     config_.row = NULL;
     config_.filename = NULL;
+    config_.statusMsg[0] = '\0';
+    config_.statusMsg_time = 0;
 
     if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) die("getWindowSize");
-    config_.screen_cols -= 1;
+    config_.screen_rows -= 2;
 }
 
 void Term::editorMoveCursor(int key) {
     trow_ *row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
 
-    switch (key)
-    {
+    switch (key) {
     case ARROW_LEFT:
         if (config_.cursor_x > 0) config_.cursor_x--;
         else if (config_.cursor_y > 0) {
@@ -277,34 +279,28 @@ void Term::editorMoveCursor(int key) {
         }
         break;
     case ARROW_RIGHT:
-        if (row && config_.cursor_x < row->size) config_.cursor_x++;
-        else if (row && config_.cursor_x == config_.row->size) {
+        if (row && config_.cursor_x < row->size) {
+            config_.cursor_x++;
+        } else if (row && config_.cursor_x == row->size) {
             config_.cursor_y++;
             config_.cursor_x = 0;
         }
         break;
     case ARROW_UP:
-        if (config_.cursor_y > 0) {
-            config_.cursor_y--;
-        }
+        if (config_.cursor_y > 0) config_.cursor_y--;
         break;
     case ARROW_DOWN:
-        if (config_.cursor_y < config_.numrows) {
-            config_.cursor_y++;
-        }
-        break;
-    case CTRL_ARROW_LEFT:
-        config_.cursor_x = 0;
-        break;
-    case CTRL_ARROW_RIGHT:
-        // config_.cursor_x = config_.row->r_size - 1;
+        if (config_.cursor_y < config_.numrows) config_.cursor_y++;
         break;
     }
 
     row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
     int rowLen = row ? row->size : 0;
     if (config_.cursor_x > rowLen) config_.cursor_x = rowLen;
+
+    config_.r_x = row ? editorRowCxToRx(row, config_.cursor_x) : 0;
 }
+
 
 void Term::editorAppendRow(char *s, size_t len) {
     config_.row = (trow_*)realloc(config_.row, sizeof(trow_) * (config_.numrows + 1));
@@ -393,4 +389,20 @@ void Term::editorDrawStatusBar(std::string &ab) {
         }
     }
     ab.append("\x1b[m", 3);
+    ab.append("\r\n", 2);
+}
+
+void Term::editorSetStatusMessage(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(config_.statusMsg, sizeof(config_.statusMsg), fmt, ap);
+    va_end(ap);
+    config_.statusMsg_time = time(NULL);
+}
+
+void Term::editorDrawMessageBar(std::string &ab) {
+    ab.append("\x1b[K]", 3);
+    int msgLen = strlen(config_.statusMsg);
+    if (msgLen > config_.screen_cols) msgLen = config_.screen_cols;
+    if (msgLen && time(NULL) - config_.statusMsg_time < 10) ab.append(config_.statusMsg, msgLen);
 }
