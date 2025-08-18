@@ -138,7 +138,8 @@ bool Term::editorProccessKeypress() {
         case CTRL_ARROW_LEFT:
             // fall through
         case CTRL_ARROW_RIGHT:
-            // fall through
+            if (config_.cursor_y < config_.numrows) config_.cursor_x = config_.row[config_.cursor_y].size;
+            break;
         case ARROW_UP: 
             // fall through
         case ARROW_DOWN:
