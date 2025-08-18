@@ -89,7 +89,7 @@ int Term::editorReadKey() {
                         return CTRL_ARROW_LEFT;
                     }
                 }
-            } else if (seq[1] >= 0 && seq [1] <= 9) {
+            } else if (seq[1] >= '0' && seq [1] <= '9') {
                 if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
                 if (seq[2] == '~') {
                     switch(seq[1]) {
@@ -125,7 +125,7 @@ bool Term::editorProccessKeypress() {
         {
             if (c == CTRL_ARROW_UP) config_.cursor_y = config_.row_offset;
             else if (c == CTRL_ARROW_DOWN) {
-                config_.cursor_y = config_.row_offset + config_.screen_cols - 1;
+                config_.cursor_y = config_.row_offset + config_.screen_rows - 1;
                 if (config_.cursor_y > config_.numrows) config_.cursor_y = config_.numrows;
             }
 
@@ -223,8 +223,7 @@ int Term::getWindowSize(int *rows, int *cols) {
 
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
         if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1;
-        editorReadKey();
-        return -1;
+        return getCursorPosition(rows, cols);
     } else {
         *cols = ws.ws_col;
         *rows = ws.ws_row;
@@ -271,6 +270,9 @@ void Term::editorMoveCursor(int key) {
     trow_ *row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
 
     switch (key) {
+    case CTRL_ARROW_LEFT:
+        config_.cursor_x = 0;
+        break;    
     case ARROW_LEFT:
         if (config_.cursor_x > 0) config_.cursor_x--;
         else if (config_.cursor_y > 0) {
@@ -353,8 +355,8 @@ void Term::editorOpen(char* filename) {
         while (lineLen > 0 && (line[lineLen - 1] == '\n' ||
                                line[lineLen - 1] == '\r')) {
             lineLen--;
-            editorAppendRow(line, lineLen);
         }
+        editorAppendRow(line, lineLen);
     }
     free(line);
     fclose(file);
