@@ -181,13 +181,13 @@ void Term::editorDrawRows(string &ab) {
             while (padding--) ab += " ";
 
             ab += welcome_msg;
-        } else {
+            } else {
             ab += '~';
-        }
+            }
         } else {
-            int len = config_.row.size;
+            int len = config_.row[y].size;
             if (len > config_.screen_cols) len = config_.screen_cols;
-            ab += config_.row.chars;
+            ab += config_.row[y].chars;
         }
             ab += "\x1b[K";
         if (y < config_.screen_rows - 1) {
@@ -271,6 +271,17 @@ void Term::editorMoveCursor(int key) {
     }
 }
 
+void Term::editorAppendRow(char *s, size_t len) {
+    config_.row = (trow_*)realloc(config_.row, sizeof(trow_) * (config_.numrows + 1));
+
+    int at = config_.numrows;
+    config_.row[at].size = len;
+    config_.row[at].chars = (char*)malloc(len + 1);
+    memcpy(config_.row[at].chars, s, len);
+    config_.row[at].chars[len] = '\0';
+    config_.numrows++;
+}
+
 void Term::editorOpen(char* filename) {
     FILE *file = fopen(filename, "r");
     if (!file) die("fopen");
@@ -278,17 +289,12 @@ void Term::editorOpen(char* filename) {
     char *line = NULL;
     size_t lineCap = 0;
     ssize_t lineLen;
-    lineLen = getline(&line, &lineCap, file);
-    if (lineLen != -1) {
+    while ((lineLen = getline(&line, &lineCap, file)) != -1) {
         while (lineLen > 0 && (line[lineLen - 1] == '\n' ||
                                line[lineLen - 1] == '\r')) {
             lineLen--;
+            editorAppendRow(line, lineLen);
         }
-        config_.row.size = lineLen;
-        config_.row.chars = (char*)malloc(lineLen + 1);
-        memcpy(config_.row.chars, line, lineLen);
-        config_.row.chars[lineLen] = '\0';
-        config_.numrows = 1;
     }
     free(line);
     fclose(file);

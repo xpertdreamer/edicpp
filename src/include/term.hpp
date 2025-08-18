@@ -63,6 +63,7 @@ private:
     void editorDrawRows(std::string &ab);
     int getWindowSize(int *rows, int *cols);
     int getCursorPosition(int *rows, int *cols);
+    void editorAppendRow(char *s, size_t len);
 };
 
 #endif // TERM_HPP
