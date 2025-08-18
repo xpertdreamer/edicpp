@@ -37,6 +37,7 @@ private:
         int screen_cols;
         int cursor_x;
         int cursor_y;
+        int row_offset;
         int numrows;
         trow_ *row;
     } config_;
@@ -64,6 +65,7 @@ private:
     int getWindowSize(int *rows, int *cols);
     int getCursorPosition(int *rows, int *cols);
     void editorAppendRow(char *s, size_t len);
+    void editorScroll();
 };
 
 #endif // TERM_HPP

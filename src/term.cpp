@@ -146,6 +146,8 @@ bool Term::editorProccessKeypress() {
 }
 
 void Term::editorRefreshScreen() {
+    editorScroll();
+
     string ab;
 
     ab += "\x1b[?25l";
@@ -154,7 +156,7 @@ void Term::editorRefreshScreen() {
     editorDrawRows(ab);
 
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", config_.cursor_y + 1, config_.cursor_x + 1);
+    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, config_.cursor_x + 1);
     ab += buffer;
 
     ab += "\x1b[?25h";
@@ -164,7 +166,8 @@ void Term::editorRefreshScreen() {
 
 void Term::editorDrawRows(string &ab) {
     for (int y = 0; y < config_.screen_rows; y++) {
-        if (y >= config_.numrows) {
+        int fileRow = y + config_.row_offset;
+        if (fileRow >= config_.numrows) {
             if (config_.numrows == 0 && y == config_.screen_rows / 2) {
                 char welcome_msg[80];
                 int welcomelen = snprintf(welcome_msg, sizeof(welcome_msg),
@@ -185,15 +188,20 @@ void Term::editorDrawRows(string &ab) {
             ab += '~';
             }
         } else {
-            int len = config_.row[y].size;
+            int len = config_.row[fileRow].size;
             if (len > config_.screen_cols) len = config_.screen_cols;
-            ab += config_.row[y].chars;
+            ab += config_.row[fileRow].chars;
         }
             ab += "\x1b[K";
         if (y < config_.screen_rows - 1) {
             ab += "\r\n";
         }
     }
+}
+
+void Term::editorScroll() {
+    if (config_.cursor_y < config_.row_offset) config_.row_offset = config_.cursor_y;
+    if (config_.cursor_y >= config_.row_offset + config_.screen_rows) config_.row_offset = config_.cursor_y - config_.screen_rows + 1;
 }
 
 int Term::getWindowSize(int *rows, int *cols) {
@@ -232,6 +240,7 @@ int Term::getCursorPosition(int *rows, int *cols) {
 void Term::initEditor() {
     config_.cursor_x = 0;
     config_.cursor_y = 0;
+    config_.row_offset = 0;
     config_.numrows = 0;
     config_.row = NULL;
     if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) {
@@ -258,7 +267,7 @@ void Term::editorMoveCursor(int key) {
         }
         break;
     case ARROW_DOWN:
-        if (config_.cursor_y != config_.screen_rows - 1) {
+        if (config_.cursor_y < config_.numrows) {
             config_.cursor_y++;
         }
         break;
