@@ -156,7 +156,7 @@ void Term::editorRefreshScreen() {
     editorDrawRows(ab);
 
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, config_.cursor_x + 1);
+    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.cursor_x - config_.col_offset) + 1);
     ab += buffer;
 
     ab += "\x1b[?25h";
@@ -188,9 +188,11 @@ void Term::editorDrawRows(string &ab) {
             ab += '~';
             }
         } else {
-            int len = config_.row[fileRow].size;
+            int len = config_.row[fileRow].size - config_.col_offset;
+            if (len < 0) len = 0;
             if (len > config_.screen_cols) len = config_.screen_cols;
-            ab += config_.row[fileRow].chars;
+            // ab += config_.row[fileRow].chars[config_.col_offset];
+            ab.append(&config_.row[fileRow].chars[config_.col_offset], len);
         }
             ab += "\x1b[K";
         if (y < config_.screen_rows - 1) {
@@ -202,6 +204,8 @@ void Term::editorDrawRows(string &ab) {
 void Term::editorScroll() {
     if (config_.cursor_y < config_.row_offset) config_.row_offset = config_.cursor_y;
     if (config_.cursor_y >= config_.row_offset + config_.screen_rows) config_.row_offset = config_.cursor_y - config_.screen_rows + 1;
+    if (config_.cursor_x < config_.col_offset) config_.col_offset = config_.cursor_x;
+    if (config_.cursor_x >= config_.col_offset + config_.screen_cols) config_.col_offset = config_.cursor_x - config_.screen_cols + 1;
 }
 
 int Term::getWindowSize(int *rows, int *cols) {
@@ -241,6 +245,7 @@ void Term::initEditor() {
     config_.cursor_x = 0;
     config_.cursor_y = 0;
     config_.row_offset = 0;
+    config_.col_offset = 0;
     config_.numrows = 0;
     config_.row = NULL;
     if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) {
@@ -257,9 +262,7 @@ void Term::editorMoveCursor(int key) {
         }
         break;
     case ARROW_RIGHT:
-        if (config_.cursor_x != config_.screen_cols - 1) {
-            config_.cursor_x++;
-        }
+        config_.cursor_x++;
         break;
     case ARROW_UP:
         if (config_.cursor_y > 0) {

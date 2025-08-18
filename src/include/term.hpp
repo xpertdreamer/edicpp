@@ -38,6 +38,7 @@ private:
         int cursor_x;
         int cursor_y;
         int row_offset;
+        int col_offset;
         int numrows;
         trow_ *row;
     } config_;
