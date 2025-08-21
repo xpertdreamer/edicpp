@@ -36,6 +36,7 @@ private:
         int r_size;
         char *chars;
         char *render;
+        unsigned char *hl;
     } trow_;
 
     struct OrigTermCfg {
@@ -70,6 +71,11 @@ private:
         DEL_KEY
     };
 
+    enum editorHighlight {
+        HL_NORMAL = 0,
+        HL_NUMBER 
+    };
+
     void editorMoveCursor(int key);
     void enableRawMode();
     void disableRawMode();
@@ -98,6 +104,8 @@ private:
     void editorFind();
     int editorRowRxToCx(trow_ *row, int rx);
     void editorFindCallback(char *query, int key);
+    void editorUpdateSyntax(trow_ *row);
+    int editorSyntaxToColor(int hl);
 };
 
 #endif // TERM_HPP

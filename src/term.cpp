@@ -241,7 +241,28 @@ void Term::editorDrawRows(string &ab) {
             int len = CFG.row[fileRow].r_size - CFG.col_offset;
             if (len < 0) len = 0;
             if (len > CFG.screen_cols) len = CFG.screen_cols;
-            ab.append(&CFG.row[fileRow].render[CFG.col_offset], len);
+            char *c = &CFG.row[fileRow].render[CFG.col_offset];
+            unsigned char *hl = &CFG.row[fileRow].hl[CFG.col_offset];
+            int current_color = -1;
+            for (int j = 0; j < len; j++) {
+                if (hl[j] == HL_NORMAL) {
+                    if (current_color != -1) {
+                        ab.append("\x1b[39m", 5);
+                        current_color = -1;
+                    }
+                    ab.append(&c[j], 1);
+                } else {
+                    int color = editorSyntaxToColor(hl[j]);
+                    if (color != current_color) {
+                        current_color = color;
+                        char seq[16];
+                        int n = snprintf(seq, sizeof(seq), "\x1b[%dm", color);
+                        ab.append(seq, n);
+                    }
+                    ab.append(&c[j], 1);
+                }
+            }
+            ab.append("\x1b[39m", 5);
         }
             ab += "\x1b[K";
             ab += "\r\n";
@@ -358,6 +379,7 @@ void Term::editorInsertRow(int at, char *s, size_t len) {
 
     CFG.row[at].r_size = 0;
     CFG.row[at].render = NULL;
+    CFG.row[at].hl = NULL;
     editorUpdateRow(&CFG.row[at]);
 
     CFG.numrows++;
@@ -383,6 +405,8 @@ void Term::editorUpdateRow(trow_ *row) {
     }
     row->render[idx] = '\0';
     row->r_size = idx;
+
+    editorUpdateSyntax(row);
 }
 
 void Term::editorOpen(char* filename) {
@@ -449,7 +473,7 @@ void Term::editorSetStatusMessage(const char *fmt, ...) {
 }
 
 void Term::editorDrawMessageBar(std::string &ab) {
-    ab.append("\x1b[K]", 3);
+    ab.append("\x1b[K", 3);
     int msgLen = strlen(CFG.statusMsg);
     if (msgLen > CFG.screen_cols) msgLen = CFG.screen_cols;
     if (msgLen && time(NULL) - CFG.statusMsg_time < 7) ab.append(CFG.statusMsg, msgLen);
@@ -544,6 +568,7 @@ void Term::editorDelChar() {
 void Term::editorFreeRow(trow_ *row) {
     free(row->render);
     free(row->chars);
+    free(row->hl);
 }
 
 void Term::editorDelRow(int at) {
@@ -679,4 +704,20 @@ int Term::editorRowRxToCx(trow_ *row, int rx) {
         if (cur_rx > rx) return cx;
     }
     return cx;
+}
+
+void Term::editorUpdateSyntax(trow_ *row) {
+    row->hl = (unsigned char *)realloc(row->hl, row->r_size);
+    memset(row->hl, HL_NORMAL, row->r_size);
+
+    for(int i = 0; i < row->r_size; i++) {
+        if (isdigit(row->render[i])) row->hl[i] = HL_NUMBER;
+    }
+}
+
+int Term::editorSyntaxToColor(int hl) {
+    switch (hl) {
+        case HL_NUMBER: return 34;
+        default: return 37;
+    }
 }
