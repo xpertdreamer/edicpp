@@ -89,6 +89,9 @@ private:
     void editorSave();
     void editorRowDeleteChar(trow_ *row, int at);
     void editorDelChar();
+    void editorFreeRow(trow_ *row);
+    void editorDelRow(int at);
+    void editorRowAppendString(trow_ *row, char *s, size_t len);
 };
 
 #endif // TERM_HPP

@@ -128,7 +128,7 @@ bool Term::editorProccessKeypress() {
             break;
         case CTRL_KEY('q'):
             if (config_.dirty && quit_times > 0){
-                editorSetStatusMessage("Hey! This file is not saved. "
+                editorSetStatusMessage("Hey! Maybe file is not saved. "
                     "Press CTRL-Q %d more times to quit", quit_times);
                 quit_times--;
                 return true;
@@ -506,10 +506,38 @@ void Term::editorRowDeleteChar(trow_ *row, int at) {
 
 void Term::editorDelChar() {
     if (config_.cursor_y == config_.numrows) return;
+    if (config_.cursor_x == 0 && config_.cursor_y == 0) return;
 
     trow_ *row = &config_.row[config_.cursor_y];
     if (config_.cursor_x > 0) {
         editorRowDeleteChar(row, config_.cursor_x - 1);
         config_.cursor_x--;
+    } else {
+        config_.cursor_x = config_.row[config_.cursor_y - 1].size;
+        editorRowAppendString(&config_.row[config_.cursor_y - 1], row->chars, row->size);
+        editorDelRow(config_.cursor_y);
+        config_.cursor_y--;
     }
+}
+
+void Term::editorFreeRow(trow_ *row) {
+    free(row->render);
+    free(row->chars);
+}
+
+void Term::editorDelRow(int at) {
+    if (at < 0 || at >= config_.numrows) return;
+    editorFreeRow(&config_.row[at]);
+    memmove(&config_.row[at], &config_.row[at + 1], sizeof(trow_) * (config_.numrows - at - 1));
+    config_.numrows--;
+    config_.dirty++;
+}
+
+void Term::editorRowAppendString(trow_ *row, char *s, size_t len) {
+    row->chars = (char *)realloc(row->chars, row->size + len + 1);
+    memcpy(&row->chars[row->size], s, len);
+    row->size += len;
+    row->chars[row->size] = '\0';
+    editorUpdateRow(row);
+    config_.dirty++;
 }
