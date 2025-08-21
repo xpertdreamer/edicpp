@@ -107,6 +107,7 @@ private:
     void editorFindCallback(char *query, int key);
     void editorUpdateSyntax(trow_ *row);
     int editorSyntaxToColor(int hl);
+    int is_separator(int c);
 };
 
 #endif // TERM_HPP

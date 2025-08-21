@@ -723,8 +723,23 @@ void Term::editorUpdateSyntax(trow_ *row) {
     row->hl = (unsigned char *)realloc(row->hl, row->r_size);
     memset(row->hl, HL_NORMAL, row->r_size);
 
-    for(int i = 0; i < row->r_size; i++) {
-        if (isdigit(row->render[i])) row->hl[i] = HL_NUMBER;
+    int prev_sep = 1;
+
+    int i = 0;
+    while (i < row->r_size) {
+        char c = row->render[i];
+        unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : (unsigned char)HL_NORMAL;
+
+        if ((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) ||
+                (c == '.' && prev_hl == HL_NUMBER)){
+            row->hl[i] = HL_NUMBER;
+            i++;
+            prev_sep = 0;
+            continue;
+        }
+
+        prev_sep = is_separator(c);
+        i++;
     }
 }
 
@@ -734,4 +749,8 @@ int Term::editorSyntaxToColor(int hl) {
         case HL_MATCH: return 33;
         default: return 37;
     }
+}
+
+int Term::is_separator(int c) {
+    return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
 }
