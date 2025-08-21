@@ -2,8 +2,10 @@
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 #define _GNU_SOURCE
+
 #define CTRL_KEY(key) ((key) & 0x1f)
 #define TAB_STOP 8
+#define QUIT_TIMES 3
 
 /*** includes ***/
 #include "include/term.hpp"
@@ -114,11 +116,23 @@ int Term::editorReadKey() {
 }
 
 bool Term::editorProccessKeypress() {
+    static int quit_times = QUIT_TIMES;
+
     int c = editorReadKey();
 
     switch(c) {
+        case CTRL_KEY('s'):
+            editorSave();
+            break;
+        case '\r':
+            break;
         case CTRL_KEY('q'):
-            return false;
+            if (config_.dirty && quit_times > 0){
+                editorSetStatusMessage("Hey! This file is not saved. "
+                    "Press CTRL-Q %d more times to quit", quit_times);
+                quit_times--;
+                return true;
+            } else return false;
         case CTRL_ARROW_UP:
             // fall through
         case CTRL_ARROW_DOWN:
@@ -149,10 +163,19 @@ bool Term::editorProccessKeypress() {
         case ARROW_RIGHT:
             editorMoveCursor(c);
             break;
+        case DEL_KEY:
+        case BACKSPACE:
+        case CTRL_KEY('h'):
+            break;
+        case CTRL_KEY('l'):
+        case '\x1b':
+            break;
         default:
             editorInsertChar(c);
             break;
     }
+
+    quit_times = QUIT_TIMES;
     return true;
 }
 
@@ -262,6 +285,7 @@ void Term::initEditor() {
     config_.numrows = 0;
     config_.row = NULL;
     config_.filename = NULL;
+    config_.dirty = 0;
     config_.statusMsg[0] = '\0';
     config_.statusMsg_time = 0;
 
@@ -321,6 +345,7 @@ void Term::editorAppendRow(char *s, size_t len) {
     editorUpdateRow(&config_.row[at]);
 
     config_.numrows++;
+    config_.dirty ++;
 }
 
 void Term::editorUpdateRow(trow_ *row) {
@@ -363,6 +388,7 @@ void Term::editorOpen(char* filename) {
     }
     free(line);
     fclose(file);
+    config_.dirty = 0;
 }
 
 int Term::editorRowCxToRx(trow_ *row, int cx) {
@@ -378,8 +404,9 @@ int Term::editorRowCxToRx(trow_ *row, int cx) {
 void Term::editorDrawStatusBar(std::string &ab) {
     ab.append("\x1b[7m", 4);
     char status[80], rstatus[80];
-    int len = snprintf(status, sizeof(status), "%.80s - %d lines", 
-        config_.filename ? config_.filename : "[No Name]", config_.numrows);
+    int len = snprintf(status, sizeof(status), "%.80s - %d lines %s", 
+        config_.filename ? config_.filename : "[No Name]", config_.numrows,
+        config_.dirty ? "(modified)" : "");
     int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d",
         config_.cursor_y + 1, config_.numrows);
     if (len > config_.screen_cols) len = config_.screen_cols;
@@ -409,7 +436,7 @@ void Term::editorDrawMessageBar(std::string &ab) {
     ab.append("\x1b[K]", 3);
     int msgLen = strlen(config_.statusMsg);
     if (msgLen > config_.screen_cols) msgLen = config_.screen_cols;
-    if (msgLen && time(NULL) - config_.statusMsg_time < 10) ab.append(config_.statusMsg, msgLen);
+    if (msgLen && time(NULL) - config_.statusMsg_time < 7) ab.append(config_.statusMsg, msgLen);
 }
 
 void Term::editorRowInsertChar(trow_ *row, int at, int c) {
@@ -419,10 +446,51 @@ void Term::editorRowInsertChar(trow_ *row, int at, int c) {
     row->size++;
     row->chars[at] = c;
     editorUpdateRow(row);
+    config_.dirty++;
 }
 
 void Term::editorInsertChar(int c) {
     if (config_.cursor_y == config_.numrows) editorAppendRow("", 0);
     editorRowInsertChar(&config_.row[config_.cursor_y], config_.cursor_x, c);
     config_.cursor_x++;
+}
+
+char *Term::editorRowToString(int *buflen) {
+    int total_len = 0;
+    int j;
+    for (j = 0; j < config_.numrows; j++) total_len += config_.row[j].size + 1;
+    *buflen = total_len;
+
+    char *buf = (char*)malloc(total_len);
+    char *p = buf;
+    for (j = 0; j < config_.numrows; j++) {
+        memcpy(p, config_.row[j].chars, config_.row[j].size);
+        p += config_.row[j].size;
+        *p = '\n';
+        p++;
+    }
+
+    return buf;
+}
+
+void Term::editorSave() {
+    if (config_.filename == NULL) return;
+
+    int len;
+    char *buf = editorRowToString(&len);
+
+    int fd = open(config_.filename, O_RDWR | O_CREAT, 0644);
+    if (fd != -1) {
+        if (ftruncate(fd, len) != -1) {
+            if (write(fd, buf, len) == len) {
+                close(fd);
+                free(buf);
+                editorSetStatusMessage("%d bytes written to disk", len);
+                return;
+            }
+        }
+        close(fd);
+    }
+    free(buf);
+    editorSetStatusMessage("Oops. I/O error: %s", strerror(errno));
 }

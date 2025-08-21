@@ -16,6 +16,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <stdarg.h>
+#include <fcntl.h>
 
 class Term {
 public:
@@ -50,11 +51,13 @@ private:
         char *filename;
         char statusMsg[80];
         time_t statusMsg_time;
+        int dirty;
     } config_;
 
     std::string abuf;
 
     enum editorKey {
+        BACKSPACE = 127,
         ARROW_LEFT = 1000,
         ARROW_RIGHT,
         ARROW_UP,
@@ -82,6 +85,8 @@ private:
     void editorDrawMessageBar(std::string &ab);
     void editorRowInsertChar(trow_ *row, int at, int c);
     void editorInsertChar(int c);
+    char *editorRowToString(int *buflen);
+    void editorSave();
 };
 
 #endif // TERM_HPP
