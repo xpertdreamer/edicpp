@@ -270,7 +270,17 @@ void Term::editorDrawRows(string &ab) {
             unsigned char *hl = &_C.row[fileRow].hl[_C.col_offset];
             int current_color = -1;
             for (int j = 0; j < len; j++) {
-                if (hl[j] == HL_NORMAL) {
+                if (iscntrl(c[j])) {
+                    char sym = (c[j] <= 26) ? '@' + c[j] : '?';
+                    ab.append("\x1b[7m", 4);
+                    ab.append(&sym, 1);
+                    ab.append("\x1b[m", 3);
+                    if (current_color != -1) {
+                        char seq[16];
+                        int n = snprintf(seq, sizeof(seq), "\x1b[%dm", current_color);
+                        ab.append(seq, n);
+                    }
+                } else if (hl[j] == HL_NORMAL) {
                     if (current_color != -1) {
                         ab.append("\x1b[39m", 5);
                         current_color = -1;
