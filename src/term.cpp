@@ -15,7 +15,7 @@
 using namespace std;
 
 /*** init ***/
-Term::Term() : config_ {}{
+Term::Term() : CFG {}{
     enableRawMode();
 }
 
@@ -25,7 +25,7 @@ Term::~Term() {
 
 /*** methods ***/
 void Term::disableRawMode() {
-    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &config_.orig_term) == -1) {
+    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &CFG.orig_term) == -1) {
         die("tcsetattr in disableRawMode");
     }
 
@@ -34,11 +34,11 @@ void Term::disableRawMode() {
 }
 
 void Term::enableRawMode() {
-    if (tcgetattr(STDIN_FILENO, &config_.orig_term) == -1) {
+    if (tcgetattr(STDIN_FILENO, &CFG.orig_term) == -1) {
         die("tcgetattr");
     }
     
-    struct termios raw = config_.orig_term;
+    struct termios raw = CFG.orig_term;
     raw.c_iflag &= ~(BRKINT | INPCK | ISTRIP | IXON | ICRNL);
     raw.c_oflag &= ~(OPOST);
     raw.c_cflag |= (CS8);
@@ -124,34 +124,40 @@ bool Term::editorProccessKeypress() {
         case CTRL_KEY('s'):
             editorSave();
             break;
+
         case '\r':
+            editorInsertNewLine();
             break;
+
         case CTRL_KEY('q'):
-            if (config_.dirty && quit_times > 0){
+            if (CFG.dirty && quit_times > 0){
                 editorSetStatusMessage("Hey! Maybe file is not saved. "
                     "Press CTRL-Q %d more times to quit", quit_times);
                 quit_times--;
                 return true;
             } else return false;
+
         case CTRL_ARROW_UP:
             // fall through
         case CTRL_ARROW_DOWN:
         {
-            if (c == CTRL_ARROW_UP) config_.cursor_y = config_.row_offset;
+            if (c == CTRL_ARROW_UP) CFG.cursor_y = CFG.row_offset;
             else if (c == CTRL_ARROW_DOWN) {
-                config_.cursor_y = config_.row_offset + config_.screen_rows - 1;
-                if (config_.cursor_y > config_.numrows) config_.cursor_y = config_.numrows;
+                CFG.cursor_y = CFG.row_offset + CFG.screen_rows - 1;
+                if (CFG.cursor_y > CFG.numrows) CFG.cursor_y = CFG.numrows;
             }
 
-            int times = config_.screen_rows;
+            int times = CFG.screen_rows;
             while (times--) {
                 editorMoveCursor(c == CTRL_ARROW_UP ? ARROW_UP : ARROW_DOWN);
             }
             break;
         }
+
         case CTRL_ARROW_RIGHT:
-            if (config_.cursor_y < config_.numrows) config_.cursor_x = config_.row[config_.cursor_y].size;
+            if (CFG.cursor_y < CFG.numrows) CFG.cursor_x = CFG.row[CFG.cursor_y].size;
             break;
+
         case CTRL_ARROW_LEFT:
             // fall through
         case ARROW_UP: 
@@ -163,14 +169,17 @@ bool Term::editorProccessKeypress() {
         case ARROW_RIGHT:
             editorMoveCursor(c);
             break;
+
         case DEL_KEY:
         case BACKSPACE:
         case CTRL_KEY('h'):
             if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
             editorDelChar();
+
         case CTRL_KEY('l'):
         case '\x1b':
             break;
+
         default:
             editorInsertChar(c);
             break;
@@ -193,7 +202,7 @@ void Term::editorRefreshScreen() {
     editorDrawMessageBar(ab);
 
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (config_.cursor_y - config_.row_offset) + 1, (config_.r_x - config_.col_offset) + 1);
+    snprintf(buffer, sizeof(buffer), "\x1b[%d;%dH", (CFG.cursor_y - CFG.row_offset) + 1, (CFG.r_x - CFG.col_offset) + 1);
     ab += buffer;
 
     ab += "\x1b[?25h";
@@ -202,18 +211,18 @@ void Term::editorRefreshScreen() {
 }
 
 void Term::editorDrawRows(string &ab) {
-    for (int y = 0; y < config_.screen_rows; y++) {
-        int fileRow = y + config_.row_offset;
-        if (fileRow >= config_.numrows) {
-            if (config_.numrows == 0 && y == config_.screen_rows / 2) {
+    for (int y = 0; y < CFG.screen_rows; y++) {
+        int fileRow = y + CFG.row_offset;
+        if (fileRow >= CFG.numrows) {
+            if (CFG.numrows == 0 && y == CFG.screen_rows / 2) {
                 char welcome_msg[80];
                 int welcomelen = snprintf(welcome_msg, sizeof(welcome_msg),
                 "%s -- version %s", 
                 PROJECT_NAME, 
                 PROJECT_VERSION);
 
-            if (welcomelen > config_.screen_cols) welcomelen = config_.screen_cols;
-            int padding = (config_.screen_cols - welcomelen) / 2;
+            if (welcomelen > CFG.screen_cols) welcomelen = CFG.screen_cols;
+            int padding = (CFG.screen_cols - welcomelen) / 2;
             if (padding) {
                 ab += "~";
                 padding--;
@@ -225,10 +234,10 @@ void Term::editorDrawRows(string &ab) {
             ab += '~';
             }
         } else {
-            int len = config_.row[fileRow].r_size - config_.col_offset;
+            int len = CFG.row[fileRow].r_size - CFG.col_offset;
             if (len < 0) len = 0;
-            if (len > config_.screen_cols) len = config_.screen_cols;
-            ab.append(&config_.row[fileRow].render[config_.col_offset], len);
+            if (len > CFG.screen_cols) len = CFG.screen_cols;
+            ab.append(&CFG.row[fileRow].render[CFG.col_offset], len);
         }
             ab += "\x1b[K";
             ab += "\r\n";
@@ -236,13 +245,13 @@ void Term::editorDrawRows(string &ab) {
 }
 
 void Term::editorScroll() {
-    config_.r_x = 0;
-    if (config_.cursor_y < config_.numrows) config_.r_x = editorRowCxToRx(&config_.row[config_.cursor_y], config_.cursor_x);
+    CFG.r_x = 0;
+    if (CFG.cursor_y < CFG.numrows) CFG.r_x = editorRowCxToRx(&CFG.row[CFG.cursor_y], CFG.cursor_x);
 
-    if (config_.cursor_y < config_.row_offset) config_.row_offset = config_.cursor_y;
-    if (config_.cursor_y >= config_.row_offset + config_.screen_rows) config_.row_offset = config_.cursor_y - config_.screen_rows + 1;
-    if (config_.r_x < config_.col_offset) config_.col_offset = config_.r_x;
-    if (config_.r_x >= config_.col_offset + config_.screen_cols) config_.col_offset = config_.r_x - config_.screen_cols + 1;
+    if (CFG.cursor_y < CFG.row_offset) CFG.row_offset = CFG.cursor_y;
+    if (CFG.cursor_y >= CFG.row_offset + CFG.screen_rows) CFG.row_offset = CFG.cursor_y - CFG.screen_rows + 1;
+    if (CFG.r_x < CFG.col_offset) CFG.col_offset = CFG.r_x;
+    if (CFG.r_x >= CFG.col_offset + CFG.screen_cols) CFG.col_offset = CFG.r_x - CFG.screen_cols + 1;
 }
 
 int Term::getWindowSize(int *rows, int *cols) {
@@ -278,75 +287,77 @@ int Term::getCursorPosition(int *rows, int *cols) {
 }
 
 void Term::initEditor() {
-    config_.cursor_x = 0;
-    config_.cursor_y = 0;
-    config_.r_x = 0;
-    config_.row_offset = 0;
-    config_.col_offset = 0;
-    config_.numrows = 0;
-    config_.row = NULL;
-    config_.filename = NULL;
-    config_.dirty = 0;
-    config_.statusMsg[0] = '\0';
-    config_.statusMsg_time = 0;
+    CFG.cursor_x = 0;
+    CFG.cursor_y = 0;
+    CFG.r_x = 0;
+    CFG.row_offset = 0;
+    CFG.col_offset = 0;
+    CFG.numrows = 0;
+    CFG.row = NULL;
+    CFG.filename = NULL;
+    CFG.dirty = 0;
+    CFG.statusMsg[0] = '\0';
+    CFG.statusMsg_time = 0;
 
-    if (getWindowSize(&config_.screen_rows, &config_.screen_cols) == -1) die("getWindowSize");
-    config_.screen_rows -= 2;
+    if (getWindowSize(&CFG.screen_rows, &CFG.screen_cols) == -1) die("getWindowSize");
+    CFG.screen_rows -= 2;
 }
 
 void Term::editorMoveCursor(int key) {
-    trow_ *row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
+    trow_ *row = (CFG.cursor_y >= CFG.numrows) ? NULL : &CFG.row[CFG.cursor_y];
 
     switch (key) {
     case CTRL_ARROW_LEFT:
-        config_.cursor_x = 0;
+        CFG.cursor_x = 0;
         break;    
     case ARROW_LEFT:
-        if (config_.cursor_x > 0) config_.cursor_x--;
-        else if (config_.cursor_y > 0) {
-            config_.cursor_y--;
-            config_.cursor_x = config_.row[config_.cursor_y].size;
+        if (CFG.cursor_x > 0) CFG.cursor_x--;
+        else if (CFG.cursor_y > 0) {
+            CFG.cursor_y--;
+            CFG.cursor_x = CFG.row[CFG.cursor_y].size;
         }
         break;
     case ARROW_RIGHT:
-        if (row && config_.cursor_x < row->size) {
-            config_.cursor_x++;
-        } else if (row && config_.cursor_x == row->size) {
-            config_.cursor_y++;
-            config_.cursor_x = 0;
+        if (row && CFG.cursor_x < row->size) {
+            CFG.cursor_x++;
+        } else if (row && CFG.cursor_x == row->size) {
+            CFG.cursor_y++;
+            CFG.cursor_x = 0;
         }
         break;
     case ARROW_UP:
-        if (config_.cursor_y > 0) config_.cursor_y--;
+        if (CFG.cursor_y > 0) CFG.cursor_y--;
         break;
     case ARROW_DOWN:
-        if (config_.cursor_y < config_.numrows) config_.cursor_y++;
+        if (CFG.cursor_y < CFG.numrows) CFG.cursor_y++;
         break;
     }
 
-    row = (config_.cursor_y >= config_.numrows) ? NULL : &config_.row[config_.cursor_y];
+    row = (CFG.cursor_y >= CFG.numrows) ? NULL : &CFG.row[CFG.cursor_y];
     int rowLen = row ? row->size : 0;
-    if (config_.cursor_x > rowLen) config_.cursor_x = rowLen;
+    if (CFG.cursor_x > rowLen) CFG.cursor_x = rowLen;
 
-    config_.r_x = row ? editorRowCxToRx(row, config_.cursor_x) : 0;
+    CFG.r_x = row ? editorRowCxToRx(row, CFG.cursor_x) : 0;
 }
 
 
-void Term::editorAppendRow(char *s, size_t len) {
-    config_.row = (trow_*)realloc(config_.row, sizeof(trow_) * (config_.numrows + 1));
+void Term::editorInsertRow(int at, char *s, size_t len) {
+    if (at < 0 || at > CFG.numrows) return;
 
-    int at = config_.numrows;
-    config_.row[at].size = len;
-    config_.row[at].chars = (char*)malloc(len + 1);
-    memcpy(config_.row[at].chars, s, len);
-    config_.row[at].chars[len] = '\0';
+    CFG.row = (trow_*)realloc(CFG.row, sizeof(trow_) * (CFG.numrows + 1));
+    memmove(&CFG.row[at + 1], &CFG.row[at], sizeof(trow_) * (CFG.numrows - at));
 
-    config_.row[at].r_size = 0;
-    config_.row[at].render = NULL;
-    editorUpdateRow(&config_.row[at]);
+    CFG.row[at].size = len;
+    CFG.row[at].chars = (char*)malloc(len + 1);
+    memcpy(CFG.row[at].chars, s, len);
+    CFG.row[at].chars[len] = '\0';
 
-    config_.numrows++;
-    config_.dirty ++;
+    CFG.row[at].r_size = 0;
+    CFG.row[at].render = NULL;
+    editorUpdateRow(&CFG.row[at]);
+
+    CFG.numrows++;
+    CFG.dirty ++;
 }
 
 void Term::editorUpdateRow(trow_ *row) {
@@ -371,8 +382,8 @@ void Term::editorUpdateRow(trow_ *row) {
 }
 
 void Term::editorOpen(char* filename) {
-    free(config_.filename);
-    config_.filename = strdup(filename);
+    free(CFG.filename);
+    CFG.filename = strdup(filename);
 
     FILE *file = fopen(filename, "r");
     if (!file) die("fopen");
@@ -385,11 +396,11 @@ void Term::editorOpen(char* filename) {
                                line[lineLen - 1] == '\r')) {
             lineLen--;
         }
-        editorAppendRow(line, lineLen);
+        editorInsertRow(CFG.numrows, line, lineLen);
     }
     free(line);
     fclose(file);
-    config_.dirty = 0;
+    CFG.dirty = 0;
 }
 
 int Term::editorRowCxToRx(trow_ *row, int cx) {
@@ -406,14 +417,14 @@ void Term::editorDrawStatusBar(std::string &ab) {
     ab.append("\x1b[7m", 4);
     char status[80], rstatus[80];
     int len = snprintf(status, sizeof(status), "%.80s - %d lines %s", 
-        config_.filename ? config_.filename : "[No Name]", config_.numrows,
-        config_.dirty ? "(modified)" : "");
+        CFG.filename ? CFG.filename : "[No Name]", CFG.numrows,
+        CFG.dirty ? "(modified)" : "");
     int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d",
-        config_.cursor_y + 1, config_.numrows);
-    if (len > config_.screen_cols) len = config_.screen_cols;
+        CFG.cursor_y + 1, CFG.numrows);
+    if (len > CFG.screen_cols) len = CFG.screen_cols;
     ab.append(status, len);
-    while (len < config_.screen_cols) {
-        if (config_.screen_cols - len == rlen) {
+    while (len < CFG.screen_cols) {
+        if (CFG.screen_cols - len == rlen) {
             ab.append(rstatus, rlen);
             break;
         } else {
@@ -428,16 +439,16 @@ void Term::editorDrawStatusBar(std::string &ab) {
 void Term::editorSetStatusMessage(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(config_.statusMsg, sizeof(config_.statusMsg), fmt, ap);
+    vsnprintf(CFG.statusMsg, sizeof(CFG.statusMsg), fmt, ap);
     va_end(ap);
-    config_.statusMsg_time = time(NULL);
+    CFG.statusMsg_time = time(NULL);
 }
 
 void Term::editorDrawMessageBar(std::string &ab) {
     ab.append("\x1b[K]", 3);
-    int msgLen = strlen(config_.statusMsg);
-    if (msgLen > config_.screen_cols) msgLen = config_.screen_cols;
-    if (msgLen && time(NULL) - config_.statusMsg_time < 7) ab.append(config_.statusMsg, msgLen);
+    int msgLen = strlen(CFG.statusMsg);
+    if (msgLen > CFG.screen_cols) msgLen = CFG.screen_cols;
+    if (msgLen && time(NULL) - CFG.statusMsg_time < 7) ab.append(CFG.statusMsg, msgLen);
 }
 
 void Term::editorRowInsertChar(trow_ *row, int at, int c) {
@@ -447,26 +458,26 @@ void Term::editorRowInsertChar(trow_ *row, int at, int c) {
     row->size++;
     row->chars[at] = c;
     editorUpdateRow(row);
-    config_.dirty++;
+    CFG.dirty++;
 }
 
 void Term::editorInsertChar(int c) {
-    if (config_.cursor_y == config_.numrows) editorAppendRow("", 0);
-    editorRowInsertChar(&config_.row[config_.cursor_y], config_.cursor_x, c);
-    config_.cursor_x++;
+    if (CFG.cursor_y == CFG.numrows) editorInsertRow(CFG.numrows, "", 0);
+    editorRowInsertChar(&CFG.row[CFG.cursor_y], CFG.cursor_x, c);
+    CFG.cursor_x++;
 }
 
 char *Term::editorRowToString(int *buflen) {
     int total_len = 0;
     int j;
-    for (j = 0; j < config_.numrows; j++) total_len += config_.row[j].size + 1;
+    for (j = 0; j < CFG.numrows; j++) total_len += CFG.row[j].size + 1;
     *buflen = total_len;
 
     char *buf = (char*)malloc(total_len);
     char *p = buf;
-    for (j = 0; j < config_.numrows; j++) {
-        memcpy(p, config_.row[j].chars, config_.row[j].size);
-        p += config_.row[j].size;
+    for (j = 0; j < CFG.numrows; j++) {
+        memcpy(p, CFG.row[j].chars, CFG.row[j].size);
+        p += CFG.row[j].size;
         *p = '\n';
         p++;
     }
@@ -475,12 +486,12 @@ char *Term::editorRowToString(int *buflen) {
 }
 
 void Term::editorSave() {
-    if (config_.filename == NULL) return;
+    if (CFG.filename == NULL) return;
 
     int len;
     char *buf = editorRowToString(&len);
 
-    int fd = open(config_.filename, O_RDWR | O_CREAT, 0644);
+    int fd = open(CFG.filename, O_RDWR | O_CREAT, 0644);
     if (fd != -1) {
         if (ftruncate(fd, len) != -1) {
             if (write(fd, buf, len) == len) {
@@ -501,22 +512,22 @@ void Term::editorRowDeleteChar(trow_ *row, int at) {
     memmove(&row->chars[at], &row->chars[at+1], row->size - at);
     row->size--;
     editorUpdateRow(row);
-    config_.dirty++;
+    CFG.dirty++;
 }
 
 void Term::editorDelChar() {
-    if (config_.cursor_y == config_.numrows) return;
-    if (config_.cursor_x == 0 && config_.cursor_y == 0) return;
+    if (CFG.cursor_y == CFG.numrows) return;
+    if (CFG.cursor_x == 0 && CFG.cursor_y == 0) return;
 
-    trow_ *row = &config_.row[config_.cursor_y];
-    if (config_.cursor_x > 0) {
-        editorRowDeleteChar(row, config_.cursor_x - 1);
-        config_.cursor_x--;
+    trow_ *row = &CFG.row[CFG.cursor_y];
+    if (CFG.cursor_x > 0) {
+        editorRowDeleteChar(row, CFG.cursor_x - 1);
+        CFG.cursor_x--;
     } else {
-        config_.cursor_x = config_.row[config_.cursor_y - 1].size;
-        editorRowAppendString(&config_.row[config_.cursor_y - 1], row->chars, row->size);
-        editorDelRow(config_.cursor_y);
-        config_.cursor_y--;
+        CFG.cursor_x = CFG.row[CFG.cursor_y - 1].size;
+        editorRowAppendString(&CFG.row[CFG.cursor_y - 1], row->chars, row->size);
+        editorDelRow(CFG.cursor_y);
+        CFG.cursor_y--;
     }
 }
 
@@ -526,11 +537,11 @@ void Term::editorFreeRow(trow_ *row) {
 }
 
 void Term::editorDelRow(int at) {
-    if (at < 0 || at >= config_.numrows) return;
-    editorFreeRow(&config_.row[at]);
-    memmove(&config_.row[at], &config_.row[at + 1], sizeof(trow_) * (config_.numrows - at - 1));
-    config_.numrows--;
-    config_.dirty++;
+    if (at < 0 || at >= CFG.numrows) return;
+    editorFreeRow(&CFG.row[at]);
+    memmove(&CFG.row[at], &CFG.row[at + 1], sizeof(trow_) * (CFG.numrows - at - 1));
+    CFG.numrows--;
+    CFG.dirty++;
 }
 
 void Term::editorRowAppendString(trow_ *row, char *s, size_t len) {
@@ -539,5 +550,19 @@ void Term::editorRowAppendString(trow_ *row, char *s, size_t len) {
     row->size += len;
     row->chars[row->size] = '\0';
     editorUpdateRow(row);
-    config_.dirty++;
+    CFG.dirty++;
+}
+
+void Term::editorInsertNewLine() {
+    if (CFG.cursor_x == 0) editorInsertRow(CFG.cursor_y, "", 0);
+    else {
+        trow_ *row = &CFG.row[CFG.cursor_y];
+        editorInsertRow(CFG.cursor_y + 1, &row->chars[CFG.cursor_x], row->size - CFG.cursor_x);
+        row = &CFG.row[CFG.cursor_y];
+        row->size = CFG.cursor_x;
+        row->chars[row->size] = '\0';
+        editorUpdateRow(row);
+    }
+    CFG.cursor_y++;
+    CFG.cursor_x = 0;
 }

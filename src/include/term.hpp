@@ -52,7 +52,7 @@ private:
         char statusMsg[80];
         time_t statusMsg_time;
         int dirty;
-    } config_;
+    } CFG;
 
     std::string abuf;
 
@@ -77,7 +77,7 @@ private:
     void editorDrawRows(std::string &ab);
     int getWindowSize(int *rows, int *cols);
     int getCursorPosition(int *rows, int *cols);
-    void editorAppendRow(char *s, size_t len);
+    void editorInsertRow(int at, char *s, size_t len);
     void editorScroll();
     void editorUpdateRow(trow_ *row);
     int editorRowCxToRx(trow_ *row, int cx);
@@ -92,6 +92,7 @@ private:
     void editorFreeRow(trow_ *row);
     void editorDelRow(int at);
     void editorRowAppendString(trow_ *row, char *s, size_t len);
+    void editorInsertNewLine();
 };
 
 #endif // TERM_HPP
