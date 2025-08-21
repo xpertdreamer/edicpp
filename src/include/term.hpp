@@ -76,6 +76,7 @@ private:
         HL_NORMAL = 0,
         HL_NUMBER,
         HL_STRING,
+        HL_COMMENT,
         HL_MATCH
     };
 

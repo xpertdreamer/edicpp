@@ -27,6 +27,7 @@ Term::~Term() {
 struct editorSyntax {
     char *filetype;
     char **filematch;
+    char *single_line_comment_start;
     int flags;
 };
 
@@ -35,6 +36,7 @@ struct editorSyntax HLDB[] = {
     {
         "c",
         C_HL_extensions,
+        "//",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -273,7 +275,7 @@ void Term::editorDrawRows(string &ab) {
                     if (color != current_color) {
                         current_color = color;
                         char seq[16];
-                        int n = snprintf(seq, sizeof(seq), "\x1b[%dm", color);
+                        int n = snprintf(seq, sizeof(seq), "\x1b[1;%dm", color);
                         ab.append(seq, n);
                     }
                     ab.append(&c[j], 1);
@@ -747,6 +749,9 @@ void Term::editorUpdateSyntax(trow_ *row) {
 
     if (_C.syntax == NULL) return;
 
+    char *scs = _C.syntax->single_line_comment_start;
+    int scs_len = scs ? strlen(scs) : 0;
+
     int prev_sep = 1;
     int in_string = 0;
 
@@ -754,6 +759,13 @@ void Term::editorUpdateSyntax(trow_ *row) {
     while (i < row->r_size) {
         char c = row->render[i];
         unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : (unsigned char)HL_NORMAL;
+
+        if (scs_len && !in_string) {
+            if (!strncmp(&row->render[i], scs, scs_len)) {
+                memset(&row->hl[i], HL_COMMENT, row->r_size - i);
+                break;
+            }
+        }
 
         if (_C.syntax->flags & HL_HIGHLIGHT_STRINGS) {
             if (in_string) {
@@ -792,8 +804,9 @@ void Term::editorUpdateSyntax(trow_ *row) {
 
 int Term::editorSyntaxToColor(int hl) {
     switch (hl) {
+        case HL_COMMENT: return 90;
         case HL_NUMBER: return 34;
-        case HL_MATCH: return 33;
+        case HL_MATCH: return 93;
         case HL_STRING: return 35;
         default: return 37;
     }
