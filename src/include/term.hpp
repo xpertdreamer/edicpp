@@ -54,6 +54,7 @@ private:
         char statusMsg[80];
         time_t statusMsg_time;
         int dirty;
+        struct editorSyntax *syntax;
     } CFG;
 
     std::string abuf;
@@ -108,6 +109,7 @@ private:
     void editorUpdateSyntax(trow_ *row);
     int editorSyntaxToColor(int hl);
     int is_separator(int c);
+    void editorSelectSyntaxHighlight();
 };
 
 #endif // TERM_HPP

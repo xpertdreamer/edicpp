@@ -2,6 +2,7 @@
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 
+#define HL_HIGHLIGHT_NUMBERS (1<<0)
 #define CTRL_KEY(key) ((key) & 0x1f)
 #define TAB_STOP 8
 #define QUIT_TIMES 3
@@ -21,6 +22,22 @@ Term::Term() : CFG {}{
 Term::~Term() {
     disableRawMode();
 }
+
+struct editorSyntax {
+    char *filetype;
+    char **filematch;
+    int flags;
+};
+
+char *C_HL_extensions[] = { ".c", ".h", ".cpp", ".hpp", NULL};
+struct editorSyntax HLDB[] = {
+    {
+        "c",
+        C_HL_extensions,
+        HL_HIGHLIGHT_NUMBERS
+    },
+};
+#define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
 /*** methods ***/
 void Term::disableRawMode() {
@@ -322,6 +339,7 @@ void Term::initEditor() {
     CFG.dirty = 0;
     CFG.statusMsg[0] = '\0';
     CFG.statusMsg_time = 0;
+    CFG.syntax = NULL;
 
     if (getWindowSize(&CFG.screen_rows, &CFG.screen_cols) == -1) die("getWindowSize");
     CFG.screen_rows -= 2;
@@ -412,6 +430,8 @@ void Term::editorOpen(char* filename) {
     free(CFG.filename);
     CFG.filename = strdup(filename);
 
+    editorSelectSyntaxHighlight();
+
     FILE *file = fopen(filename, "r");
     if (!file) die("fopen");
 
@@ -446,8 +466,8 @@ void Term::editorDrawStatusBar(std::string &ab) {
     int len = snprintf(status, sizeof(status), "%.80s - %d lines %s", 
         CFG.filename ? CFG.filename : "[No Name]", CFG.numrows,
         CFG.dirty ? "(modified)" : "");
-    int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d",
-        CFG.cursor_y + 1, CFG.numrows);
+    int rlen = snprintf(rstatus, sizeof(rstatus), "%s | %d/%d",
+        CFG.syntax ? CFG.syntax->filetype : "no ft", CFG.cursor_y + 1, CFG.numrows);
     if (len > CFG.screen_cols) len = CFG.screen_cols;
     ab.append(status, len);
     while (len < CFG.screen_cols) {
@@ -519,6 +539,7 @@ void Term::editorSave() {
             editorSetStatusMessage("Save aborted");
             return;
         }
+        editorSelectSyntaxHighlight();
     }
 
     int len;
@@ -723,6 +744,8 @@ void Term::editorUpdateSyntax(trow_ *row) {
     row->hl = (unsigned char *)realloc(row->hl, row->r_size);
     memset(row->hl, HL_NORMAL, row->r_size);
 
+    if (CFG.syntax == NULL) return;
+
     int prev_sep = 1;
 
     int i = 0;
@@ -730,12 +753,14 @@ void Term::editorUpdateSyntax(trow_ *row) {
         char c = row->render[i];
         unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : (unsigned char)HL_NORMAL;
 
-        if ((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) ||
-                (c == '.' && prev_hl == HL_NUMBER)){
-            row->hl[i] = HL_NUMBER;
-            i++;
-            prev_sep = 0;
-            continue;
+        if(CFG.syntax->flags & HL_HIGHLIGHT_NUMBERS) {
+            if ((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) ||
+                    (c == '.' && prev_hl == HL_NUMBER)){
+                row->hl[i] = HL_NUMBER;
+                i++;
+                prev_sep = 0;
+                continue;
+            }
         }
 
         prev_sep = is_separator(c);
@@ -753,4 +778,30 @@ int Term::editorSyntaxToColor(int hl) {
 
 int Term::is_separator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
+}
+
+void Term::editorSelectSyntaxHighlight() {
+    CFG.syntax = NULL;
+    if (CFG.filename == NULL) return;
+
+    char *ext = strrchr(CFG.filename, '.');
+
+    for (unsigned int j = 0; j < HLDB_ENTRIES; j++) {
+        struct editorSyntax *s = &HLDB[j];
+        unsigned int i = 0;
+        while(s->filematch[i]) {
+            int is_ext = (s->filematch[i][0] == '.');
+            if ((is_ext && ext && !strcmp(ext, s->filematch[i])) ||
+                (!is_ext && strstr(CFG.filename, s->filematch[i]))) {
+                CFG.syntax = s;
+
+                int filerow;
+                for (filerow = 0; filerow < CFG.numrows; filerow++) {
+                    editorUpdateSyntax(&CFG.row[filerow]);
+                }
+                return;
+            }
+            i++;
+        }
+    }
 }
