@@ -1,5 +1,5 @@
 #!/bin/bash
-# build.sh — сборка edi с переносом конфигурации
+# build.sh — сборка edi с переносом конфигурации и добавлением в PATH
 
 # Проверка на gcc
 if ! command -v gcc &> /dev/null
@@ -63,13 +63,42 @@ else
     fi
 fi
 
-# Предложение добавить в PATH
+# Предложение добавить в PATH для текущей сессии
 echo
-echo "Хотите добавить edi в PATH для текущей сессии? (y/n)"
+echo "Хотите добавить edi в PATH для текущей сессии и навсегда? (y/n)"
 read -r addpath
 if [[ "$addpath" == "y" || "$addpath" == "Y" ]]; then
     export PATH="$PWD:$PATH"
-    echo "Добавлено $PWD в PATH. Теперь вы можете запускать 'edi' из любого места."
+    echo "Добавлено $PWD в PATH для текущей сессии."
+
+    # Определяем shell и файл конфигурации
+    SHELL_NAME=$(basename "$SHELL")
+    case "$SHELL_NAME" in
+        bash)
+            RC_FILE="$HOME/.bashrc"
+            ;;
+        zsh)
+            RC_FILE="$HOME/.zshrc"
+            ;;
+        *)
+            RC_FILE=""
+            ;;
+    esac
+
+    if [[ -n "$RC_FILE" ]]; then
+        # Проверка, есть ли уже запись в rc-файле
+        if ! grep -Fxq "export PATH=\"$PWD:\$PATH\"" "$RC_FILE"; then
+            echo "" >> "$RC_FILE"
+            echo "# Добавление edi в PATH" >> "$RC_FILE"
+            echo "export PATH=\"$PWD:\$PATH\"" >> "$RC_FILE"
+            echo "Добавлено $PWD в PATH в $RC_FILE."
+        else
+            echo "PATH уже содержит $PWD в $RC_FILE."
+        fi
+        echo "Чтобы изменения вступили в силу, перезапустите терминал или выполните: source $RC_FILE"
+    else
+        echo "Не удалось определить shell, добавление в rc-файл не выполнено."
+    fi
 fi
 
 echo "Готово!"
