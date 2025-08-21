@@ -615,12 +615,23 @@ char *Term::editorPrompt(char *prompt, std::function<void(char*, int)> callback)
 }
 
 void Term::editorFind() {
+    int saved_cx = CFG.cursor_x;
+    int saved_cy = CFG.cursor_y;
+    int saved_coloff = CFG.col_offset;
+    int saved_rowoff = CFG.row_offset;
+
     char *query = editorPrompt(
         (char*)"Search: %s (ESC to cancel)",
         [this](char *query, int key){ this->editorFindCallback(query, key); }
     );
 
     if (query) free(query);
+    else {
+        CFG.cursor_x = saved_cx;
+        CFG.cursor_y = saved_cy;
+        CFG.col_offset = saved_coloff;
+        CFG.row_offset = saved_rowoff;
+    }
 }
 
 void Term::editorFindCallback(char *query, int key) {
