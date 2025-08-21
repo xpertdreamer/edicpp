@@ -17,17 +17,38 @@ using namespace std;
 /*** init ***/
 Config cfg;
 
-Term::Term() : _C {}{
+Term::Term() : _C {} {
     const char* home = std::getenv("HOME");
-    if(!home) die("Не удалось получить HOME");
-    std::string configPath;
+    if (!home) die("Не удалось получить HOME");
+
+    namespace fs = std::filesystem;
+    fs::path configDir;
+
     #ifdef __APPLE__
-    configPath = std::string(home) + "/Library/Application Support/edi/config.conf";
+    configDir = fs::path(home) / "Library" / "Application Support" / "edi";
     #else
-    configPath = std::string(home) + "/.config/edi/config.conf";
+    configDir = fs::path(home) / ".config" / "edi";
     #endif
-    if(cfg.loadConfig(configPath) == 1) die("loadConfig");
-    
+
+    std::error_code ec;
+    if (!fs::exists(configDir) && !fs::create_directories(configDir, ec)) {
+        std::cerr << "Не удалось создать папку конфигурации: " << ec.message() << std::endl;
+        die("create_directories");
+    }
+
+    fs::path configPath = configDir / "config.conf";
+
+    if (!fs::exists(configPath)) {
+        std::ofstream ofs(configPath);
+        if (!ofs) {
+            std::cerr << "Не удалось создать конфигурационный файл: " 
+                      << configPath << std::endl;
+            die("create_config_file");
+        }
+    }
+
+    if (cfg.loadConfig(configPath.string()) == 1) die("loadConfig");
+
     enableRawMode();
 }
 

@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <filesystem>
+#include <fstream>
 
 class Term {
 public:
