@@ -18,7 +18,16 @@ using namespace std;
 Config cfg;
 
 Term::Term() : _C {}{
-    if(cfg.loadConfig("../config.conf") == 1) die("loadConfig");
+    const char* home = std::getenv("HOME");
+    if(!home) die("Не удалось получить HOME");
+    std::string configPath;
+    #ifdef __APPLE__
+    configPath = std::string(home) + "/Library/Application Support/edi/config.conf";
+    #else
+    configPath = std::string(home) + "/.config/edi/config.conf";
+    #endif
+    if(cfg.loadConfig(configPath) == 1) die("loadConfig");
+    
     enableRawMode();
 }
 
