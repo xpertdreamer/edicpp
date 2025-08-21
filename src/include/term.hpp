@@ -55,7 +55,7 @@ private:
         time_t statusMsg_time;
         int dirty;
         struct editorSyntax *syntax;
-    } CFG;
+    } _C;
 
     std::string abuf;
 
@@ -75,6 +75,7 @@ private:
     enum editorHighlight {
         HL_NORMAL = 0,
         HL_NUMBER,
+        HL_STRING,
         HL_MATCH
     };
 
