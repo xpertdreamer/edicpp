@@ -166,7 +166,8 @@ bool Term::editorProccessKeypress() {
         case DEL_KEY:
         case BACKSPACE:
         case CTRL_KEY('h'):
-            break;
+            if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
+            editorDelChar();
         case CTRL_KEY('l'):
         case '\x1b':
             break;
@@ -493,4 +494,22 @@ void Term::editorSave() {
     }
     free(buf);
     editorSetStatusMessage("Oops. I/O error: %s", strerror(errno));
+}
+
+void Term::editorRowDeleteChar(trow_ *row, int at) {
+    if (at < 0 || at >= row->size) return;
+    memmove(&row->chars[at], &row->chars[at+1], row->size - at);
+    row->size--;
+    editorUpdateRow(row);
+    config_.dirty++;
+}
+
+void Term::editorDelChar() {
+    if (config_.cursor_y == config_.numrows) return;
+
+    trow_ *row = &config_.row[config_.cursor_y];
+    if (config_.cursor_x > 0) {
+        editorRowDeleteChar(row, config_.cursor_x - 1);
+        config_.cursor_x--;
+    }
 }

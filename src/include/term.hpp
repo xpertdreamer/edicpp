@@ -87,6 +87,8 @@ private:
     void editorInsertChar(int c);
     char *editorRowToString(int *buflen);
     void editorSave();
+    void editorRowDeleteChar(trow_ *row, int at);
+    void editorDelChar();
 };
 
 #endif // TERM_HPP
