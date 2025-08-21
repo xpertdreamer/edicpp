@@ -32,11 +32,13 @@ public:
     
 private:
     typedef struct TextRow {
+        int idx;
         int size;
         int r_size;
         char *chars;
         char *render;
         unsigned char *hl;
+        int hl_open_comment;
     } trow_;
 
     struct OrigTermCfg {
@@ -77,6 +79,7 @@ private:
         HL_NUMBER,
         HL_STRING,
         HL_COMMENT,
+        HL_MLCOMMENT,
         HL_KEYWORD1,
         HL_KEYWORD2,
         HL_MATCH

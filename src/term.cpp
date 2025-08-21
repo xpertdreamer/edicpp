@@ -29,6 +29,8 @@ struct editorSyntax {
     char **filematch;
     char **keywords;
     char *single_line_comment_start;
+    char *multiline_comment_start;
+    char *multiline_comment_end;
     int flags;
 };
 
@@ -42,7 +44,7 @@ struct editorSyntax HLDB[] = {
         "c",
         C_HL_extensions,
         C_HL_keywords,
-        "//",
+        "//", "/*", "*/",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
     },
 };
@@ -407,6 +409,9 @@ void Term::editorInsertRow(int at, char *s, size_t len) {
 
     _C.row = (trow_*)realloc(_C.row, sizeof(trow_) * (_C.numrows + 1));
     memmove(&_C.row[at + 1], &_C.row[at], sizeof(trow_) * (_C.numrows - at));
+    for (int j = at + 1; j <= _C.numrows; j++) _C.row[j].idx++;
+
+    _C.row[at].idx = at;
 
     _C.row[at].size = len;
     _C.row[at].chars = (char*)malloc(len + 1);
@@ -416,6 +421,7 @@ void Term::editorInsertRow(int at, char *s, size_t len) {
     _C.row[at].r_size = 0;
     _C.row[at].render = NULL;
     _C.row[at].hl = NULL;
+    _C.row[at].hl_open_comment = 0;
     editorUpdateRow(&_C.row[at]);
 
     _C.numrows++;
@@ -614,6 +620,7 @@ void Term::editorDelRow(int at) {
     if (at < 0 || at >= _C.numrows) return;
     editorFreeRow(&_C.row[at]);
     memmove(&_C.row[at], &_C.row[at + 1], sizeof(trow_) * (_C.numrows - at - 1));
+    for (int j = at; j < _C.numrows - 1; j++) _C.row[j].idx--;
     _C.numrows--;
     _C.dirty++;
 }
@@ -768,20 +775,47 @@ void Term::editorUpdateSyntax(trow_ *row) {
     char **keywords = _C.syntax->keywords;
 
     char *scs = _C.syntax->single_line_comment_start;
-    int scs_len = scs ? strlen(scs) : 0;
+    char *mcs = _C.syntax->multiline_comment_start;
+    char *mce = _C.syntax->multiline_comment_end;
 
-    int prev_sep = 1;
-    int in_string = 0;
+    int scs_len = scs ? strlen(scs) : 0;
+    int mcs_len = mcs ? strlen(mcs) : 0;
+    int mce_len = mce ? strlen(mce) : 0;
+
+    bool prev_sep = 1;
+    bool in_string = 0;
+    bool in_comment = (row->idx > 0 && _C.row[row->idx - 1].hl_open_comment);
 
     int i = 0;
     while (i < row->r_size) {
         char c = row->render[i];
         unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : (unsigned char)HL_NORMAL;
 
-        if (scs_len && !in_string) {
+        if (scs_len && !in_string && !in_comment) {
             if (!strncmp(&row->render[i], scs, scs_len)) {
                 memset(&row->hl[i], HL_COMMENT, row->r_size - i);
                 break;
+            }
+        }
+
+        if (mcs_len && mce_len && !in_string) {
+            if (in_comment) {
+                row->hl[i] = HL_MLCOMMENT;
+                if (!strncmp(&row->render[i], mce, mce_len)) {
+                    memset(&row->hl[i], HL_MLCOMMENT, mce_len);
+                    i += mce_len;
+                    in_comment = 0;
+                    prev_sep = 1;
+                    continue;
+                } else {
+                    i++;
+                    continue;
+                }
+            } else if (!strncmp(&row->render[i], mcs, mcs_len)) {
+                memset(&row->hl[i], HL_MLCOMMENT, mcs_len);
+                i += mcs_len;
+                in_comment = 1;
+                continue;
             }
         }
 
@@ -838,10 +872,15 @@ void Term::editorUpdateSyntax(trow_ *row) {
         prev_sep = is_separator(c);
         i++;
     }
+
+    int changed = (row->hl_open_comment != in_comment);
+    row->hl_open_comment = in_comment;
+    if (changed && row->idx + 1 < _C.numrows) editorUpdateSyntax(&_C.row[row->idx + 1]);
 }
 
 int Term::editorSyntaxToColor(int hl) {
     switch (hl) {
+        case HL_MLCOMMENT:
         case HL_COMMENT: return 90;
         case HL_KEYWORD1: return 93;
         case HL_KEYWORD2: return 92;
