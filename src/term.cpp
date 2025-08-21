@@ -131,7 +131,7 @@ bool Term::editorProccessKeypress() {
 
         case CTRL_KEY('q'):
             if (CFG.dirty && quit_times > 0){
-                editorSetStatusMessage("Hey! Maybe file is not saved. "
+                editorSetStatusMessage("Hey! This file is modified. "
                     "Press CTRL-Q %d more times to quit", quit_times);
                 quit_times--;
                 return true;
@@ -486,7 +486,13 @@ char *Term::editorRowToString(int *buflen) {
 }
 
 void Term::editorSave() {
-    if (CFG.filename == NULL) return;
+    if (CFG.filename == NULL){
+        CFG.filename = editorPrompt("Save as: %s");
+        if (CFG.filename == NULL) {
+            editorSetStatusMessage("Save aborted");
+            return;
+        }
+    }
 
     int len;
     char *buf = editorRowToString(&len);
@@ -565,4 +571,37 @@ void Term::editorInsertNewLine() {
     }
     CFG.cursor_y++;
     CFG.cursor_x = 0;
+}
+
+char *Term::editorPrompt(char *prompt) {
+    size_t bufsize = 128;
+    char *buf = (char *)malloc(bufsize);
+    size_t buflen = 0;
+    buf[0] = '\0';
+
+    while (true) {
+        editorSetStatusMessage(prompt, buf);
+        editorRefreshScreen();
+
+        int c = editorReadKey();
+        if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (buflen != 0 ) buf[--buflen] = '\0';
+        } else if (c == '\x1b') {
+            editorSetStatusMessage("");
+            free(buf);
+            return NULL;
+        } else if (c == '\r') {
+            if (buflen != 0) {
+                editorSetStatusMessage("");
+                return buf;
+            }
+        } else if (!iscntrl(c) && c < 128) {
+            if (buflen == bufsize - 1) {
+                bufsize *= 2;
+                buf = (char *)realloc(buf, bufsize);
+            }
+            buf[buflen++] = c;
+            buf[buflen] = '\0';
+        }
+    }
 }

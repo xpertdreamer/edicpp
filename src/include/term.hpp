@@ -93,6 +93,7 @@ private:
     void editorDelRow(int at);
     void editorRowAppendString(trow_ *row, char *s, size_t len);
     void editorInsertNewLine();
+    char *editorPrompt(char *prompt);
 };
 
 #endif // TERM_HPP
