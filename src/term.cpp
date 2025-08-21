@@ -5,18 +5,20 @@
 #define HL_HIGHLIGHT_NUMBERS (1<<0)
 #define HL_HIGHLIGHT_STRINGS (1<<1)
 #define CTRL_KEY(key) ((key) & 0x1f)
-#define TAB_STOP 8
-#define QUIT_TIMES 3
 
 /*** includes ***/
 #include "include/term.hpp"
+#include "include/config.hpp"
 #include "version.hpp"
 
 /*** usings ***/
 using namespace std;
 
 /*** init ***/
+Config cfg;
+
 Term::Term() : _C {}{
+    if(cfg.loadConfig("../config.conf") == 1) die("loadConfig");
     enableRawMode();
 }
 
@@ -25,29 +27,33 @@ Term::~Term() {
 }
 
 struct editorSyntax {
-    char *filetype;
-    char **filematch;
-    char **keywords;
-    char *single_line_comment_start;
-    char *multiline_comment_start;
-    char *multiline_comment_end;
+    const char *filetype;
+    const char **filematch;
+    const char **keywords;
+    const char *single_line_comment_start;
+    const char *multiline_comment_start;
+    const char *multiline_comment_end;
     int flags;
 };
 
-char *C_HL_extensions[] = { ".c", ".h", ".cpp", ".hpp", NULL};
-char *C_HL_keywords[] = {  "switch", "if", "while", "for", "break", "continue", "return", "else",
-                            "struct", "union", "typedef", "static", "enum", "class", "case",
-                            "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
-                            "void|", NULL};
-struct editorSyntax HLDB[] = {
+const char *C_HL_extensions[] = { ".c", ".h", ".cpp", ".hpp", nullptr };
+const char *C_HL_keywords[] = {
+    "switch", "if", "while", "for", "break", "continue", "return", "else",
+    "struct", "union", "typedef", "static", "enum", "class", "case",
+    "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
+    "void|", nullptr
+};
+
+editorSyntax HLDB[] = {
     {
         "c",
         C_HL_extensions,
         C_HL_keywords,
         "//", "/*", "*/",
         HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS
-    },
+    }
 };
+
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
 /*** methods ***/
@@ -143,7 +149,7 @@ int Term::editorReadKey() {
 }
 
 bool Term::editorProccessKeypress() {
-    static int quit_times = QUIT_TIMES;
+    static int quit_times = cfg.config.quit_times;
 
     int c = editorReadKey();
 
@@ -216,7 +222,7 @@ bool Term::editorProccessKeypress() {
             break;
     }
 
-    quit_times = QUIT_TIMES;
+    quit_times = cfg.config.quit_times;
     return true;
 }
 
@@ -434,13 +440,13 @@ void Term::editorUpdateRow(trow_ *row) {
     for (j = 0; j < row->size; j++) if (row->chars[j] == '\t') tabs++;
 
     free(row->render);
-    row->render = (char*)malloc(row->size + (tabs * (TAB_STOP - 1)) + 1);
+    row->render = (char*)malloc(row->size + (tabs * (cfg.config.tab_stop - 1)) + 1);
 
     int idx = 0;
     for (int j = 0; j < row->size; j++) { 
         if (row->chars[j] == '\t') {
             row->render[idx++] = ' ';
-            while (idx % TAB_STOP != 0) row->render[idx++] = ' ';
+            while (idx % cfg.config.tab_stop != 0) row->render[idx++] = ' ';
         } else {
             row->render[idx++] = row->chars[j];
         }
@@ -479,7 +485,7 @@ int Term::editorRowCxToRx(trow_ *row, int cx) {
     int rx = 0;
     int j;
     for (j = 0; j < cx; j++) {
-        if (row->chars[j] == '\t') rx += (TAB_STOP - 1) - (rx % TAB_STOP);
+        if (row->chars[j] == '\t') rx += (cfg.config.tab_stop - 1) - (rx % cfg.config.tab_stop);
         rx++;
     }
     return rx;
@@ -758,7 +764,7 @@ int Term::editorRowRxToCx(trow_ *row, int rx) {
     int cur_rx = 0;
     int cx;
     for (cx = 0; cx < row->size; cx++) {
-        if (row->chars[cx] == '\t') cur_rx += (TAB_STOP - 1) - (cur_rx % TAB_STOP);
+        if (row->chars[cx] == '\t') cur_rx += (cfg.config.tab_stop - 1) - (cur_rx % cfg.config.tab_stop);
         cur_rx++;
 
         if (cur_rx > rx) return cx;
@@ -772,11 +778,11 @@ void Term::editorUpdateSyntax(trow_ *row) {
 
     if (_C.syntax == NULL) return;
 
-    char **keywords = _C.syntax->keywords;
+    const char **keywords = _C.syntax->keywords;
 
-    char *scs = _C.syntax->single_line_comment_start;
-    char *mcs = _C.syntax->multiline_comment_start;
-    char *mce = _C.syntax->multiline_comment_end;
+    const char *scs = _C.syntax->single_line_comment_start;
+    const char *mcs = _C.syntax->multiline_comment_start;
+    const char *mce = _C.syntax->multiline_comment_end;
 
     int scs_len = scs ? strlen(scs) : 0;
     int mcs_len = mcs ? strlen(mcs) : 0;
@@ -881,12 +887,12 @@ void Term::editorUpdateSyntax(trow_ *row) {
 int Term::editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_MLCOMMENT:
-        case HL_COMMENT: return 90;
-        case HL_KEYWORD1: return 93;
-        case HL_KEYWORD2: return 92;
-        case HL_NUMBER: return 94;
-        case HL_MATCH: return 33;
-        case HL_STRING: return 95;
+        case HL_COMMENT: return cfg.config.hl_comment;
+        case HL_KEYWORD1: return cfg.config.hl_keyword1;
+        case HL_KEYWORD2: return cfg.config.hl_keyword2;
+        case HL_NUMBER: return cfg.config.hl_number;
+        case HL_MATCH: return cfg.config.hl_match;
+        case HL_STRING: return cfg.config.hl_string;
         default: return 37;
     }
 }
