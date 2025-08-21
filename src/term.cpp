@@ -662,6 +662,15 @@ void Term::editorFindCallback(char *query, int key) {
     static int last_match = -1;
     static int direction = 1;
 
+    static int saved_hl_line;
+    static char *saved_hl = NULL;
+
+    if (saved_hl) {
+        memcpy(CFG.row[saved_hl_line].hl, saved_hl, CFG.row[saved_hl_line].r_size);
+        free(saved_hl);
+        saved_hl = NULL;
+    }
+
     if (key == '\r' || key == '\x1b') {
         last_match = -1;
         direction = 1;
@@ -689,6 +698,9 @@ void Term::editorFindCallback(char *query, int key) {
             CFG.cursor_x = editorRowRxToCx(row, match - row->render);
             CFG.row_offset = CFG.numrows;
 
+            saved_hl_line = curr;
+            saved_hl = (char *)malloc(row->r_size);
+            memcpy(saved_hl, row->hl, row->r_size);
             memset(&row->hl[match - row->render], HL_MATCH, strlen(query));
             break;
         }
