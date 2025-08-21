@@ -7,6 +7,7 @@ then
     echo "Ошибка: gcc не установлен. Пожалуйста, установите GCC."
     exit 1
 fi
+echo "gcc найден!"
 
 # Проверка на cmake
 if ! command -v cmake &> /dev/null
@@ -14,6 +15,7 @@ then
     echo "Ошибка: cmake не установлен. Пожалуйста, установите CMake."
     exit 1
 fi
+echo "cmake найден!"
 
 # Определение корневой папки проекта (где находится build.sh)
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,6 +23,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Создание папки сборки
 mkdir -p "$ROOT_DIR/build"
 cd "$ROOT_DIR/build"
+echo "папка build создана!"
 
 # Генерация сборки через cmake
 cmake ..
