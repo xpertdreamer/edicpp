@@ -6,6 +6,7 @@
 #include <cctype>
 #include <iostream>
 #include <string>
+#include <functional>
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
@@ -93,9 +94,10 @@ private:
     void editorDelRow(int at);
     void editorRowAppendString(trow_ *row, char *s, size_t len);
     void editorInsertNewLine();
-    char *editorPrompt(char *prompt);
+    char *editorPrompt(char *prompt, std::function<void(char*, int)> callback);
     void editorFind();
     int editorRowRxToCx(trow_ *row, int rx);
+    void editorFindCallback(char *query, int key);
 };
 
 #endif // TERM_HPP

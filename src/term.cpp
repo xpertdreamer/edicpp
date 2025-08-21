@@ -491,7 +491,7 @@ char *Term::editorRowToString(int *buflen) {
 
 void Term::editorSave() {
     if (CFG.filename == NULL){
-        CFG.filename = editorPrompt("Save as: %s");
+        CFG.filename = editorPrompt("Save as: %s", NULL);
         if (CFG.filename == NULL) {
             editorSetStatusMessage("Save aborted");
             return;
@@ -577,7 +577,7 @@ void Term::editorInsertNewLine() {
     CFG.cursor_x = 0;
 }
 
-char *Term::editorPrompt(char *prompt) {
+char *Term::editorPrompt(char *prompt, std::function<void(char*, int)> callback) {
     size_t bufsize = 128;
     char *buf = (char *)malloc(bufsize);
     size_t buflen = 0;
@@ -592,11 +592,13 @@ char *Term::editorPrompt(char *prompt) {
             if (buflen != 0 ) buf[--buflen] = '\0';
         } else if (c == '\x1b') {
             editorSetStatusMessage("");
+            if (callback) callback(buf, c);
             free(buf);
             return NULL;
         } else if (c == '\r') {
             if (buflen != 0) {
                 editorSetStatusMessage("");
+                if (callback) callback(buf, c);
                 return buf;
             }
         } else if (!iscntrl(c) && c < 128) {
@@ -607,12 +609,22 @@ char *Term::editorPrompt(char *prompt) {
             buf[buflen++] = c;
             buf[buflen] = '\0';
         }
+
+        if (callback) callback(buf, c);
     }
 }
 
 void Term::editorFind() {
-    char *query = editorPrompt("Search: %s (ESC to cancel)");
-    if (query == NULL) return;
+    char *query = editorPrompt(
+        (char*)"Search: %s (ESC to cancel)",
+        [this](char *query, int key){ this->editorFindCallback(query, key); }
+    );
+
+    if (query) free(query);
+}
+
+void Term::editorFindCallback(char *query, int key) {
+    if (key == '\r' || key == '\x1b') return;
 
     for (int i = 0; i < CFG.numrows; i++) {
         trow_ *row = &CFG.row[i];
@@ -624,7 +636,6 @@ void Term::editorFind() {
             break;
         }
     }
-    free(query);
 }
 
 int Term::editorRowRxToCx(trow_ *row, int rx) {
