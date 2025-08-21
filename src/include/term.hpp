@@ -94,6 +94,8 @@ private:
     void editorRowAppendString(trow_ *row, char *s, size_t len);
     void editorInsertNewLine();
     char *editorPrompt(char *prompt);
+    void editorFind();
+    int editorRowRxToCx(trow_ *row, int rx);
 };
 
 #endif // TERM_HPP

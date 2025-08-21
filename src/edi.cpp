@@ -5,7 +5,7 @@ int main(int argc, char **argv) {
     term.initEditor();
     if(argc >= 2) term.editorOpen(argv[1]);
     
-    term.editorSetStatusMessage("HELP: CTRL-S = save | CTRL-Q = quit");
+    term.editorSetStatusMessage("HELP: CTRL-S = save | CTRL-Q = quit | CTRL-F = find");
 
     while (true) {
         term.editorRefreshScreen();

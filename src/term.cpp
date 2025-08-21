@@ -154,6 +154,10 @@ bool Term::editorProccessKeypress() {
             break;
         }
 
+        case CTRL_KEY('f'):
+            editorFind();
+            break;
+
         case CTRL_ARROW_RIGHT:
             if (CFG.cursor_y < CFG.numrows) CFG.cursor_x = CFG.row[CFG.cursor_y].size;
             break;
@@ -604,4 +608,33 @@ char *Term::editorPrompt(char *prompt) {
             buf[buflen] = '\0';
         }
     }
+}
+
+void Term::editorFind() {
+    char *query = editorPrompt("Search: %s (ESC to cancel)");
+    if (query == NULL) return;
+
+    for (int i = 0; i < CFG.numrows; i++) {
+        trow_ *row = &CFG.row[i];
+        char *match = strstr(row->render, query);
+        if (match) {
+            CFG.cursor_y = i;
+            CFG.cursor_x = editorRowRxToCx(row, match - row->render);
+            CFG.row_offset = CFG.numrows;
+            break;
+        }
+    }
+    free(query);
+}
+
+int Term::editorRowRxToCx(trow_ *row, int rx) {
+    int cur_rx = 0;
+    int cx;
+    for (cx = 0; cx < row->size; cx++) {
+        if (row->chars[cx] == '\t') cur_rx += (TAB_STOP - 1) - (cur_rx % TAB_STOP);
+        cur_rx++;
+
+        if (cur_rx > rx) return cx;
+    }
+    return cx;
 }
