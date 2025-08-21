@@ -621,7 +621,7 @@ void Term::editorFind() {
     int saved_rowoff = CFG.row_offset;
 
     char *query = editorPrompt(
-        (char*)"Search: %s (ESC to cancel)",
+        (char*)"Search: %s (HELP: ESC/Arrows/Enter)",
         [this](char *query, int key){ this->editorFindCallback(query, key); }
     );
 
@@ -635,13 +635,33 @@ void Term::editorFind() {
 }
 
 void Term::editorFindCallback(char *query, int key) {
-    if (key == '\r' || key == '\x1b') return;
+    static int last_match = -1;
+    static int direction = 1;
 
+    if (key == '\r' || key == '\x1b') {
+        last_match = -1;
+        direction = 1;
+        return;
+    } 
+    else if (key == ARROW_RIGHT || key == ARROW_DOWN) direction = 1;
+    else if (key == ARROW_LEFT || key == ARROW_UP) direction = -1;
+    else {
+        last_match = -1;
+        direction = 1;
+    }
+
+    if (last_match == -1) direction = 1;
+    int curr = last_match;
     for (int i = 0; i < CFG.numrows; i++) {
-        trow_ *row = &CFG.row[i];
+        curr += direction;
+        if (curr == -1) curr = CFG.numrows - 1;
+        else if (curr == CFG.numrows) curr = 0;
+
+        trow_ *row = &CFG.row[curr];
         char *match = strstr(row->render, query);
         if (match) {
-            CFG.cursor_y = i;
+            last_match = curr;
+            CFG.cursor_y = curr;
             CFG.cursor_x = editorRowRxToCx(row, match - row->render);
             CFG.row_offset = CFG.numrows;
             break;
