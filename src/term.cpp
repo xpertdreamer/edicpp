@@ -1,7 +1,6 @@
 /*** defines ***/
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
-#define _GNU_SOURCE
 
 #define CTRL_KEY(key) ((key) & 0x1f)
 #define TAB_STOP 8
@@ -490,7 +489,7 @@ void Term::editorRowInsertChar(trow_ *row, int at, int c) {
 }
 
 void Term::editorInsertChar(int c) {
-    if (CFG.cursor_y == CFG.numrows) editorInsertRow(CFG.numrows, "", 0);
+    if (CFG.cursor_y == CFG.numrows) editorInsertRow(CFG.numrows, (char*)"", 0);
     editorRowInsertChar(&CFG.row[CFG.cursor_y], CFG.cursor_x, c);
     CFG.cursor_x++;
 }
@@ -515,7 +514,7 @@ char *Term::editorRowToString(int *buflen) {
 
 void Term::editorSave() {
     if (CFG.filename == NULL){
-        CFG.filename = editorPrompt("Save as: %s", NULL);
+        CFG.filename = editorPrompt((char*)"Save as: %s", NULL);
         if (CFG.filename == NULL) {
             editorSetStatusMessage("Save aborted");
             return;
@@ -589,7 +588,7 @@ void Term::editorRowAppendString(trow_ *row, char *s, size_t len) {
 }
 
 void Term::editorInsertNewLine() {
-    if (CFG.cursor_x == 0) editorInsertRow(CFG.cursor_y, "", 0);
+    if (CFG.cursor_x == 0) editorInsertRow(CFG.cursor_y, (char*)"", 0);
     else {
         trow_ *row = &CFG.row[CFG.cursor_y];
         editorInsertRow(CFG.cursor_y + 1, &row->chars[CFG.cursor_x], row->size - CFG.cursor_x);
@@ -689,6 +688,8 @@ void Term::editorFindCallback(char *query, int key) {
             CFG.cursor_y = curr;
             CFG.cursor_x = editorRowRxToCx(row, match - row->render);
             CFG.row_offset = CFG.numrows;
+
+            memset(&row->hl[match - row->render], HL_MATCH, strlen(query));
             break;
         }
     }
@@ -718,6 +719,7 @@ void Term::editorUpdateSyntax(trow_ *row) {
 int Term::editorSyntaxToColor(int hl) {
     switch (hl) {
         case HL_NUMBER: return 34;
+        case HL_MATCH: return 33;
         default: return 37;
     }
 }
